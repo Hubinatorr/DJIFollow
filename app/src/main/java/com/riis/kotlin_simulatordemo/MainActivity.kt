@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.location.Location
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -16,6 +17,7 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.lifecycleScope
+import dji.common.error.DJIError
 import dji.common.flightcontroller.simulator.InitializationData
 import dji.common.flightcontroller.virtualstick.*
 import dji.common.model.LocationCoordinate2D
@@ -27,6 +29,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.*
 import kotlin.math.abs
+import kotlin.math.min
+import kotlin.math.round
 
 class MainActivity : AppCompatActivity(), View.OnClickListener {
 
@@ -39,15 +43,21 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private lateinit var mTextView: TextView
     private lateinit var mScreenJoystickLeft: OnScreenJoystick
     private lateinit var mScreenJoystickRight: OnScreenJoystick
+    private lateinit var mBtnWaypoint: Button
+    private lateinit var mBtnFollow: Button
+    private lateinit var mBtnHotpoint: Button
+    private lateinit var waypointLocation: Location
 
     private var mSendVirtualStickDataTimer: Timer? = null
     private var mSendVirtualStickDataTask: SendVirtualStickDataTask? = null
 
+    private val HPRadius: Float = 10f
+    private val AutoFLightSpeed = 15f
     private var mPitch: Float = 0f
     private var mRoll: Float = 0f
     private var mYaw: Float = 0f
     private var mThrottle: Float = 0f
-
+    private var mission: Int = 0
 
     private val viewModel by viewModels<MainViewModel>()
 
@@ -118,6 +128,15 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         mScreenJoystickRight = findViewById(R.id.directionJoystickRight)
         mScreenJoystickLeft = findViewById(R.id.directionJoystickLeft)
 
+        mBtnWaypoint = findViewById(R.id.btn_waypoint)
+        mBtnWaypoint.setOnClickListener(this)
+
+        mBtnFollow = findViewById(R.id.btn_follow)
+        mBtnFollow.setOnClickListener(this)
+
+        mBtnHotpoint = findViewById(R.id.btn_hotpoint)
+        mBtnHotpoint.setOnClickListener(this)
+
         mBtnEnableVirtualStick.setOnClickListener(this)
         mBtnDisableVirtualStick.setOnClickListener(this)
         mBtnTakeOff.setOnClickListener(this)
@@ -156,57 +175,57 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             }
         }
 
-        mScreenJoystickRight.setJoystickListener(object : OnScreenJoystickListener {
-            override fun onTouch(joystick: OnScreenJoystick?, pXP: Float, pYP: Float) {
-                var pX = pXP
-                var pY = pYP
-                if (abs(pX) < 0.02) {
-                    pX = 0f
-                }
-                if (abs(pY) < 0.02) {
-                    pY = 0f
-                }
-                val pitchJoyControlMaxSpeed = 10f
-                val rollJoyControlMaxSpeed = 10f
-                mPitch = (pitchJoyControlMaxSpeed * pX)
-                mRoll = (rollJoyControlMaxSpeed * pY)
-                if (null == mSendVirtualStickDataTimer) {
-                    mSendVirtualStickDataTask = SendVirtualStickDataTask()
-                    mSendVirtualStickDataTimer = Timer()
-                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 100, 200)
-                }
-            }
-        })
-
-        mScreenJoystickLeft.setJoystickListener(object : OnScreenJoystickListener {
-            override fun onTouch(joystick: OnScreenJoystick?, pX: Float, pY: Float) {
-                var pX = pX
-                var pY = pY
-                if (abs(pX) < 0.02) {
-                    pX = 0f
-                }
-                if (abs(pY) < 0.02) {
-                    pY = 0f
-                }
-                val verticalJoyControlMaxSpeed = 2f
-                val yawJoyControlMaxSpeed = 30f
-                mYaw = (yawJoyControlMaxSpeed * pX)
-                mThrottle = (verticalJoyControlMaxSpeed * pY)
-                if (null == mSendVirtualStickDataTimer) {
-                    mSendVirtualStickDataTask = SendVirtualStickDataTask()
-                    mSendVirtualStickDataTimer = Timer()
-                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 200)
-                }
-            }
-        })
+//        mScreenJoystickRight.setJoystickListener(object : OnScreenJoystickListener {
+//            override fun onTouch(joystick: OnScreenJoystick?, pXP: Float, pYP: Float) {
+//                var pX = pXP
+//                var pY = pYP
+//                if (abs(pX) < 0.02) {
+//                    pX = 0f
+//                }
+//                if (abs(pY) < 0.02) {
+//                    pY = 0f
+//                }
+//                val pitchJoyControlMaxSpeed = 10f
+//                val rollJoyControlMaxSpeed = 10f
+//                mPitch = (pitchJoyControlMaxSpeed * pX)
+//                mRoll = (rollJoyControlMaxSpeed * pY)
+//                if (null == mSendVirtualStickDataTimer) {
+//                    mSendVirtualStickDataTask = SendVirtualStickDataTask()
+//                    mSendVirtualStickDataTimer = Timer()
+//                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 100, 200)
+//                }
+//            }
+//        })
+//
+//        mScreenJoystickLeft.setJoystickListener(object : OnScreenJoystickListener {
+//            override fun onTouch(joystick: OnScreenJoystick?, pX: Float, pY: Float) {
+//                var pX = pX
+//                var pY = pY
+//                if (abs(pX) < 0.02) {
+//                    pX = 0f
+//                }
+//                if (abs(pY) < 0.02) {
+//                    pY = 0f
+//                }
+//                val verticalJoyControlMaxSpeed = 2f
+//                val yawJoyControlMaxSpeed = 30f
+//                mYaw = (yawJoyControlMaxSpeed * pX)
+//                mThrottle = (verticalJoyControlMaxSpeed * pY)
+//                if (null == mSendVirtualStickDataTimer) {
+//                    mSendVirtualStickDataTask = SendVirtualStickDataTask()
+//                    mSendVirtualStickDataTimer = Timer()
+//                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 200)
+//                }
+//            }
+//        })
     }
 
     private fun initFlightController() {
 
         viewModel.getFlightController()?.let {
             it.rollPitchControlMode = RollPitchControlMode.VELOCITY
-            it.yawControlMode = YawControlMode.ANGULAR_VELOCITY
-            it.verticalControlMode = VerticalControlMode.VELOCITY
+            it.yawControlMode = YawControlMode.ANGLE
+            it.verticalControlMode = VerticalControlMode.POSITION
             it.rollPitchCoordinateSystem = FlightCoordinateSystem.BODY
             it.simulator.setStateCallback { stateData ->
                 val yaw = String.format("%.2f", stateData.yaw)
@@ -279,6 +298,27 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                     }
                 }
             }
+            R.id.btn_waypoint -> {
+                waypointLocation = Location("")
+                waypointLocation.latitude = 22.547886
+                waypointLocation.longitude =  113.960243
+                waypointLocation.altitude = 20f.toDouble()
+
+                showToast("Waypoint set")
+                if (null == mSendVirtualStickDataTimer) {
+                    mSendVirtualStickDataTask = SendVirtualStickDataTask()
+                    mSendVirtualStickDataTimer = Timer()
+                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 200)
+                }
+            }
+            R.id.btn_follow -> {
+                mission = 1
+                showToast("Mission set to follow")
+            }
+            R.id.btn_hotpoint -> {
+                mission = 2
+                showToast("Mission set to hotpoint")
+            }
             else -> {
 
             }
@@ -309,10 +349,81 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
     inner class SendVirtualStickDataTask: TimerTask() {
         override fun run() {
-            viewModel.getFlightController()?.sendVirtualStickFlightControlData(
-                FlightControlData(mPitch, mRoll, mYaw, mThrottle)
-            ) {
+            viewModel.getFlightController()?.let { controller ->
+                val droneLocation = Location("")
+                droneLocation.latitude = controller.state.aircraftLocation.latitude
+                droneLocation.longitude = controller.state.aircraftLocation.longitude
+                droneLocation.altitude = controller.state.aircraftLocation.altitude.toDouble()
 
+                val VirtualStickBearing = droneLocation.bearingTo(waypointLocation)
+                val VirtualStickDistance = droneLocation.distanceTo(waypointLocation)
+                val VirtualStickAltitudeDifference = abs(round(droneLocation.altitude) -waypointLocation.altitude)
+
+
+                if (mission == 1) {
+                    if (VirtualStickAltitudeDifference>2) {
+                        mYaw=VirtualStickBearing
+                    }
+
+                    if ( abs(controller.state.attitude.yaw-VirtualStickBearing) > 5) {
+                        mYaw=VirtualStickBearing
+                    }
+
+                    if (VirtualStickDistance>60) {
+                        mYaw=VirtualStickBearing
+                        mRoll=AutoFLightSpeed
+                    }
+
+                    if (VirtualStickDistance>2 && VirtualStickDistance<=60) {
+                        mYaw=VirtualStickBearing
+                        mRoll= min(VirtualStickDistance/4, AutoFLightSpeed)
+                    }
+
+                    if (!((VirtualStickAltitudeDifference>2)||(abs(controller.state.attitude.yaw-VirtualStickBearing) > 5)||(VirtualStickDistance>2 && VirtualStickDistance<=60)||(VirtualStickDistance>60))) {
+                        mYaw=VirtualStickBearing
+                        mRoll=0f
+                    }
+
+                    controller.sendVirtualStickFlightControlData(
+                        FlightControlData(0f, mRoll, mYaw, waypointLocation.altitude.toFloat())
+                    ) { djiError ->
+                        if (djiError != null) {
+                            Log.i(TAG, djiError.description)
+                            showToast("Error while sending data: ${djiError.description}")
+                        }
+                    }
+                }
+
+                if (mission == 2) {
+                    if (VirtualStickAltitudeDifference > 2) {
+                        mThrottle= waypointLocation.altitude.toFloat()
+                        mYaw = VirtualStickBearing
+                    } else {
+                        mThrottle= waypointLocation.altitude.toFloat()
+                        mYaw=VirtualStickBearing
+
+                        if (abs(VirtualStickDistance - HPRadius) > 10) {
+                            mPitch = 0f
+                        } else {
+                            mPitch = min(15f,(HPRadius/5f))
+                        }
+
+                        if (abs(VirtualStickDistance - HPRadius) > 0.2) {
+                            mRoll = min(15f, (VirtualStickDistance - HPRadius)/4)
+                        } else {
+                            mRoll = 0f
+                        }
+                    }
+
+                    controller.sendVirtualStickFlightControlData(
+                        FlightControlData(-mPitch, mRoll, mYaw, mThrottle)
+                    ) { djiError ->
+                        if (djiError != null) {
+                            Log.i(TAG, djiError.description)
+                            showToast("Error while sending data: ${djiError.description}")
+                        }
+                    }
+                }
             }
         }
     }
