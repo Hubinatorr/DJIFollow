@@ -28,9 +28,7 @@ import dji.sdk.products.Aircraft
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.*
-import kotlin.math.abs
-import kotlin.math.min
-import kotlin.math.round
+import kotlin.math.*
 
 class MainActivity : AppCompatActivity(), View.OnClickListener {
 
@@ -47,6 +45,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private lateinit var mBtnFollow: Button
     private lateinit var mBtnHotpoint: Button
     private lateinit var waypointLocation: Location
+    private lateinit var lookAtLocation: Location
 
     private var mSendVirtualStickDataTimer: Timer? = null
     private var mSendVirtualStickDataTask: SendVirtualStickDataTask? = null
@@ -57,7 +56,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private var mRoll: Float = 0f
     private var mYaw: Float = 0f
     private var mThrottle: Float = 0f
-    private var mission: Int = 0
+    private var mission: Int = 3
 
     private val viewModel by viewModels<MainViewModel>()
 
@@ -300,9 +299,27 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             }
             R.id.btn_waypoint -> {
                 waypointLocation = Location("")
-                waypointLocation.latitude = 22.547886
-                waypointLocation.longitude =  113.960243
-                waypointLocation.altitude = 20f.toDouble()
+//                waypointLocation.latitude = 22.547886
+//                waypointLocation.longitude =  113.960243
+//                waypointLocation.altitude = 20f.toDouble()
+
+//                waypointLocation.latitude = 22.545560
+//                waypointLocation.longitude =  113.957940
+//                waypointLocation.altitude = 10f.toDouble()
+//
+//                lookAtLocation.latitude = 22.544639
+//                lookAtLocation.longitude = 113.959593
+//                lookAtLocation.altitude = 10f.toDouble()
+
+                waypointLocation = Location("")
+                waypointLocation.latitude = 22.0
+                waypointLocation.longitude =  113.0
+                waypointLocation.altitude = 10f.toDouble()
+
+                lookAtLocation = Location("")
+                lookAtLocation.latitude = 22.005
+                lookAtLocation.longitude = 113.005
+                lookAtLocation.altitude = 10f.toDouble()
 
                 showToast("Waypoint set")
                 if (null == mSendVirtualStickDataTimer) {
@@ -312,8 +329,20 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 }
             }
             R.id.btn_follow -> {
-                mission = 1
-                showToast("Mission set to follow")
+
+
+                val droneLocation = Location("")
+                droneLocation.latitude = 22.005
+                droneLocation.longitude = 113.0
+                droneLocation.altitude = 10f.toDouble()
+
+                val waypointBearing = droneLocation.bearingTo(waypointLocation)
+                Log.i(TAG, waypointBearing.toString())
+                val lookAtBearing = droneLocation.bearingTo(lookAtLocation)
+                Log.i(TAG, lookAtBearing.toString())
+                val angle = abs(lookAtBearing - waypointBearing)
+                Log.i(TAG, angle.toString())
+
             }
             R.id.btn_hotpoint -> {
                 mission = 2
@@ -417,6 +446,32 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
                     controller.sendVirtualStickFlightControlData(
                         FlightControlData(-mPitch, mRoll, mYaw, mThrottle)
+                    ) { djiError ->
+                        if (djiError != null) {
+                            Log.i(TAG, djiError.description)
+                            showToast("Error while sending data: ${djiError.description}")
+                        }
+                    }
+                }
+
+                if (mission == 3) {
+                    val waypointBearing = droneLocation.bearingTo(waypointLocation)
+                    val lookAtBearing = droneLocation.bearingTo(lookAtLocation)
+
+                    val angle = abs(lookAtBearing - waypointBearing)
+
+                    if (VirtualStickAltitudeDifference > 2) {
+                        mThrottle= waypointLocation.altitude.toFloat()
+                        mYaw = VirtualStickBearing
+                    } else {
+                        mThrottle= waypointLocation.altitude.toFloat()
+                        mYaw = VirtualStickBearing
+                        mPitch = 10f * sin(Math.toRadians(angle.toDouble()).toFloat())
+                        mRoll = 10f * cos(Math.toRadians(angle.toDouble()).toFloat())
+                    }
+
+                    controller.sendVirtualStickFlightControlData(
+                        FlightControlData(mPitch, mRoll, mYaw, mThrottle)
                     ) { djiError ->
                         if (djiError != null) {
                             Log.i(TAG, djiError.description)
