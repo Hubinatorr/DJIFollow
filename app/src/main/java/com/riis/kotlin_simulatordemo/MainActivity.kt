@@ -1,10 +1,6 @@
 package com.riis.kotlin_simulatordemo
 
 import android.Manifest
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.location.Location
 import android.os.Bundle
 import android.util.Log
@@ -17,16 +13,17 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.lifecycleScope
-import dji.common.error.DJIError
+import com.beust.klaxon.Klaxon
 import dji.common.flightcontroller.simulator.InitializationData
 import dji.common.flightcontroller.virtualstick.*
 import dji.common.model.LocationCoordinate2D
-import dji.sdk.base.BaseProduct
-import dji.sdk.camera.Camera
-import dji.sdk.flightcontroller.FlightController
 import dji.sdk.products.Aircraft
+import dji.thirdparty.org.java_websocket.client.WebSocketClient
+import dji.thirdparty.org.java_websocket.handshake.ServerHandshake
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.net.URI
+import java.net.URISyntaxException
 import java.util.*
 import kotlin.math.*
 
@@ -44,8 +41,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private lateinit var mBtnWaypoint: Button
     private lateinit var mBtnFollow: Button
     private lateinit var mBtnHotpoint: Button
-    private lateinit var waypointLocation: Location
-    private lateinit var lookAtLocation: Location
+    private var followDroneLocation = Location("")
+    private var lookAtLocation = Location("")
+    private lateinit var mBtnConnect: Button
+    private lateinit var webSocketClient: WebSocketClient
 
     private var mSendVirtualStickDataTimer: Timer? = null
     private var mSendVirtualStickDataTask: SendVirtualStickDataTask? = null
@@ -90,7 +89,58 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         viewModel.startSdkRegistration(this)
         initObservers()
         initUi()
+    }
 
+    class DroneData(
+        val DroneId: String,
+        val Altitude: Double,
+        val Latitude: Double,
+        val Longitude: Double,
+        val Pitch : Double,
+        val Roll: Double,
+        val Yaw: Double,
+        val Compass: Double
+        )
+
+    private fun createWebSocketClient() {
+        val uri: URI = try {
+            URI("ws://147.229.193.119:8000")
+            //uri = new URI("ws://10.42.0.1:5555");
+        } catch (e: URISyntaxException) {
+            e.printStackTrace()
+            return
+        }
+        webSocketClient = object : WebSocketClient(uri) {
+            override fun onOpen(serverHandshake: ServerHandshake) {
+                Log.i(TAG, "Connected to the DroCo server.")
+            }
+
+            override fun onMessage(s: String) {
+                val droneData = Klaxon().parse<DroneData>(s)
+                if (droneData != null) {
+                    Log.i(TAG, droneData.DroneId)
+                    if (droneData.DroneId == "FollowDrone") {
+                        followDroneLocation.altitude = droneData.Altitude
+                        followDroneLocation.latitude = droneData.Latitude
+                        followDroneLocation.longitude = droneData.Longitude
+
+                        lookAtLocation.latitude = droneData.Latitude
+                        lookAtLocation.longitude = droneData.Longitude
+                        lookAtLocation.altitude = droneData.Altitude
+                        Log.i(TAG, "Updated follow drone location")
+                    }
+                } else {
+                    Log.i(TAG, "Parse incorrect")
+                }
+            }
+            override fun onClose(i: Int, s: String, b: Boolean) {
+                Log.i(TAG, "Connection to the DroCo server closed.")
+            }
+
+            override fun onError(e: Exception) {
+                Log.i(TAG, "Error connection")
+            }
+        }
     }
 
     private fun initObservers() {
@@ -126,6 +176,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         mConnectStatusTextView = findViewById(R.id.ConnectStatusTextView)
         mScreenJoystickRight = findViewById(R.id.directionJoystickRight)
         mScreenJoystickLeft = findViewById(R.id.directionJoystickLeft)
+
+        mBtnConnect = findViewById(R.id.btn_connect)
+        mBtnConnect.setOnClickListener(this)
 
         mBtnWaypoint = findViewById(R.id.btn_waypoint)
         mBtnWaypoint.setOnClickListener(this)
@@ -298,27 +351,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 }
             }
             R.id.btn_waypoint -> {
-                waypointLocation = Location("")
-//                waypointLocation.latitude = 22.547886
-//                waypointLocation.longitude =  113.960243
-//                waypointLocation.altitude = 20f.toDouble()
+                followDroneLocation.latitude = 49.229633
+                followDroneLocation.longitude =  16.591430
+                followDroneLocation.altitude = 10f.toDouble()
 
-//                waypointLocation.latitude = 22.545560
-//                waypointLocation.longitude =  113.957940
-//                waypointLocation.altitude = 10f.toDouble()
-//
-//                lookAtLocation.latitude = 22.544639
-//                lookAtLocation.longitude = 113.959593
-//                lookAtLocation.altitude = 10f.toDouble()
-
-                waypointLocation = Location("")
-                waypointLocation.latitude = 22.0
-                waypointLocation.longitude =  113.0
-                waypointLocation.altitude = 10f.toDouble()
-
-                lookAtLocation = Location("")
-                lookAtLocation.latitude = 22.005
-                lookAtLocation.longitude = 113.005
+                lookAtLocation.latitude = 49.229633
+                lookAtLocation.longitude = 16.591430
                 lookAtLocation.altitude = 10f.toDouble()
 
                 showToast("Waypoint set")
@@ -329,14 +367,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 }
             }
             R.id.btn_follow -> {
-
-
                 val droneLocation = Location("")
                 droneLocation.latitude = 22.005
                 droneLocation.longitude = 113.0
                 droneLocation.altitude = 10f.toDouble()
 
-                val waypointBearing = droneLocation.bearingTo(waypointLocation)
+                val waypointBearing = droneLocation.bearingTo(followDroneLocation)
                 Log.i(TAG, waypointBearing.toString())
                 val lookAtBearing = droneLocation.bearingTo(lookAtLocation)
                 Log.i(TAG, lookAtBearing.toString())
@@ -345,8 +381,20 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
             }
             R.id.btn_hotpoint -> {
+                followDroneLocation.latitude = 49.228542
+                followDroneLocation.longitude =  16.597291
+                followDroneLocation.altitude = 10f.toDouble()
                 mission = 2
-                showToast("Mission set to hotpoint")
+                showToast("Hotpoint waypoint set")
+                if (null == mSendVirtualStickDataTimer) {
+                    mSendVirtualStickDataTask = SendVirtualStickDataTask()
+                    mSendVirtualStickDataTimer = Timer()
+                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 200)
+                }
+            }
+            R.id.btn_connect -> {
+                createWebSocketClient()
+                webSocketClient.connect()
             }
             else -> {
 
@@ -384,10 +432,20 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 droneLocation.longitude = controller.state.aircraftLocation.longitude
                 droneLocation.altitude = controller.state.aircraftLocation.altitude.toDouble()
 
-                val VirtualStickBearing = droneLocation.bearingTo(waypointLocation)
-                val VirtualStickDistance = droneLocation.distanceTo(waypointLocation)
-                val VirtualStickAltitudeDifference = abs(round(droneLocation.altitude) -waypointLocation.altitude)
+                val VirtualStickBearing = droneLocation.bearingTo(followDroneLocation)
+                val VirtualStickDistance = droneLocation.distanceTo(followDroneLocation)
+                val VirtualStickAltitudeDifference = abs(round(droneLocation.altitude) -followDroneLocation.altitude)
 
+                val state = controller.state;
+                val location = state.aircraftLocation
+                val attitude = state.attitude
+                val compass = controller.compass.heading
+                webSocketClient.send(
+                    "{\"DroneId\":\"DJI-Mavic"+ "\",\"Altitude\":" + location.altitude + ",\"Latitude\":"
+                            + location.latitude + ",\"Longitude\":" + location.longitude
+                            + ",\"Pitch\":" + attitude.pitch + ",\"Roll\":" + attitude.roll + ",\"Yaw\":" + attitude.yaw
+                            + ",\"Compass\":" + compass + "}"
+                )
 
                 if (mission == 1) {
                     if (VirtualStickAltitudeDifference>2) {
@@ -414,7 +472,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                     }
 
                     controller.sendVirtualStickFlightControlData(
-                        FlightControlData(0f, mRoll, mYaw, waypointLocation.altitude.toFloat())
+                        FlightControlData(0f, mRoll, mYaw, followDroneLocation.altitude.toFloat())
                     ) { djiError ->
                         if (djiError != null) {
                             Log.i(TAG, djiError.description)
@@ -424,11 +482,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 }
 
                 if (mission == 2) {
+                    // Hotpoint
                     if (VirtualStickAltitudeDifference > 2) {
-                        mThrottle= waypointLocation.altitude.toFloat()
+                        mThrottle= followDroneLocation.altitude.toFloat()
                         mYaw = VirtualStickBearing
                     } else {
-                        mThrottle= waypointLocation.altitude.toFloat()
+                        mThrottle= followDroneLocation.altitude.toFloat()
                         mYaw=VirtualStickBearing
 
                         if (abs(VirtualStickDistance - HPRadius) > 10) {
@@ -454,21 +513,27 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                     }
                 }
 
+                // waypointy
                 if (mission == 3) {
-                    val waypointBearing = droneLocation.bearingTo(waypointLocation)
+                    val waypointBearing = droneLocation.bearingTo(followDroneLocation)
                     val lookAtBearing = droneLocation.bearingTo(lookAtLocation)
 
                     val angle = abs(lookAtBearing - waypointBearing)
 
                     if (VirtualStickAltitudeDifference > 2) {
-                        mThrottle= waypointLocation.altitude.toFloat()
+                        mThrottle= followDroneLocation.altitude.toFloat()
                         mYaw = VirtualStickBearing
                     } else {
-                        mThrottle= waypointLocation.altitude.toFloat()
+                        mThrottle= followDroneLocation.altitude.toFloat()
                         mYaw = VirtualStickBearing
                         mPitch = 10f * sin(Math.toRadians(angle.toDouble()).toFloat())
                         mRoll = 10f * cos(Math.toRadians(angle.toDouble()).toFloat())
                     }
+
+                    Log.i(TAG, "Pitch $mPitch")
+                    Log.i(TAG, "Roll $mRoll")
+                    Log.i(TAG, "Yaw $mYaw")
+                    Log.i(TAG, "Throttle $mThrottle")
 
                     controller.sendVirtualStickFlightControlData(
                         FlightControlData(mPitch, mRoll, mYaw, mThrottle)
