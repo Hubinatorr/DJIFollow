@@ -121,26 +121,26 @@
         android:layout_height="wrap_content"
         android:layout_alignTop="@+id/btn_take_off"
         android:layout_alignEnd="@+id/directionJoystickRight"
-        android:layout_marginStart="-246dp"
+        android:layout_marginStart="-241dp"
         android:layout_marginLeft="10dp"
-        android:layout_marginTop="64dp"
-        android:layout_marginEnd="256dp"
+        android:layout_marginTop="121dp"
+        android:layout_marginEnd="258dp"
         android:layout_toEndOf="@+id/btn_take_off"
         android:text="Hotpoint" />
 
     <Button
-        android:id="@+id/btn_connect"
+        android:id="@+id/btn_start_mission"
         style="@style/common_button"
-        android:layout_width="113dp"
+        android:layout_width="133dp"
         android:layout_height="wrap_content"
         android:layout_alignTop="@+id/btn_take_off"
         android:layout_alignEnd="@+id/directionJoystickRight"
-        android:layout_marginStart="-107dp"
+        android:layout_marginStart="-246dp"
         android:layout_marginLeft="10dp"
-        android:layout_marginTop="63dp"
-        android:layout_marginEnd="139dp"
+        android:layout_marginTop="60dp"
+        android:layout_marginEnd="254dp"
         android:layout_toEndOf="@+id/btn_take_off"
-        android:text="Connect" />
+        android:text="Start Mission" />
 
     <Button
         android:id="@+id/btn_follow"
