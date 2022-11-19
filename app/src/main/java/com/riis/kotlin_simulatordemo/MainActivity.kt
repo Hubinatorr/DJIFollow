@@ -130,8 +130,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                     Log.i(TAG, droneData.DroneId)
                     if (droneData.DroneId == "FollowDrone") {
                         if (mission == MISSION.LOOK_AT_FOLLOW.type) {
-
-                            followTargetLocation.latitude = droneData.Latitude  + (followRadius / rEarth) * (180 / PI)
+                            followTargetLocation.latitude = droneData.Latitude  + 0.0006
                             followTargetLocation.longitude = droneData.Longitude
                             followTargetLocation.altitude = droneData.Altitude
 
@@ -384,7 +383,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 if (mSendVirtualStickDataTimer == null) {
                     mSendVirtualStickDataTask = SendVirtualStickDataTask()
                     mSendVirtualStickDataTimer = Timer()
-                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 200)
+                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 40)
                 }
             }
         }
@@ -471,11 +470,17 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                         }
                     }
                     2 -> {
-                        val headingAngle = abs(followTargetBearing - compass)
+                        val headingAngle =(360 + followTargetBearing) - (360 + compass)
+
                         mThrottle = followTargetLocation.altitude.toFloat()
-                        mYaw = lookAtTargetBearing
-                        mPitch = -(10f * sin(Math.toRadians(headingAngle.toDouble()).toFloat()))
-                        mRoll = 10f * cos(Math.toRadians(headingAngle.toDouble()).toFloat())
+
+
+                        val diff : Float = lookAtTargetBearing - compass
+
+                        mYaw = lookAtTargetBearing;
+                        mPitch = 5f * sin(Math.toRadians(headingAngle.toDouble()).toFloat())
+                        mRoll = 5f * cos(Math.toRadians(headingAngle.toDouble()).toFloat())
+
                     }
                     3 -> {
                         if (followTargetAltitudeDifference > 2) {
@@ -499,6 +504,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                         }
                     }
                 }
+
 
                 controller.sendVirtualStickFlightControlData(
                     FlightControlData(-mPitch, mRoll, mYaw, mThrottle)
