@@ -63,6 +63,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
     companion object {
         const val TAG = "UserAppMainAct"
+        const val TAGDEGUG = "Kokot"
     }
 
     private enum class MISSION (val type: Int){
@@ -142,8 +143,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                             followTargetLocation.longitude = droneData.Longitude
                             followTargetLocation.altitude = droneData.Altitude
                         }
-
-                        Log.i(TAG, "Updated follow drone location")
                     }
                 } else {
                     Log.i(TAG, "Parse incorrect")
@@ -311,7 +310,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             }
         }
     }
-
+    private var debug = false
     override fun onClick(v: View?) {
         when(v?.id) {
             R.id.btn_enable_virtual_stick -> {
@@ -372,7 +371,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 mission = MISSION.SIMPLE_FOLLOW.type
             }
             R.id.btn_follow -> {
-                showToast("Look At Follow set")
+                debug = true
                 mission = MISSION.LOOK_AT_FOLLOW.type
             }
             R.id.btn_hotpoint -> {
@@ -411,6 +410,15 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         super.onDestroy()
     }
 
+    class Angle(d: Double) {
+        val value = when {
+            d in -180.0 .. 180.0 -> d
+            d > 180.0            -> (d - 180.0) % 360.0 - 180.0
+            else                 -> (d + 180.0) % 360.0 + 180.0
+        }
+
+        operator fun minus(other: Angle) = Angle(this.value - other.value)
+    }
     inner class SendVirtualStickDataTask: TimerTask() {
         override fun run() {
             viewModel.getFlightController()?.let { controller ->
@@ -425,10 +433,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 droneLocation.longitude = location.longitude
                 droneLocation.altitude = location.altitude.toDouble()
 
-                mYaw = 0.0f
-                mRoll = 0.0f
-                mPitch = 0.0f
-                mThrottle = 0.0f
+//                mYaw = 0.0f
+//                mRoll = 0.0f
+//                mPitch = 0.0f
+//                mThrottle = 0.0f
 
                 val followTargetBearing = droneLocation.bearingTo(followTargetLocation)
                 val followTargetDistance = droneLocation.distanceTo(followTargetLocation)
@@ -470,16 +478,56 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                         }
                     }
                     2 -> {
-                        val headingAngle =(360 + followTargetBearing) - (360 + compass)
+                        val headingAngle = Angle(followTargetBearing.toDouble()).value - Angle(compass.toDouble()).value
 
                         mThrottle = followTargetLocation.altitude.toFloat()
+                        if (debug) {
+                            Log.i(TAGDEGUG, "----------")
+                        }
 
+                        val diff : Double = Angle(lookAtTargetBearing.toDouble()).value - Angle(compass.toDouble()).value
+                        if (followTargetDistance < 2) {
+                            mRoll = 0f
+                            mPitch = 0f
+                            mYaw = lookAtTargetBearing
+                        } else if (followTargetDistance > 20){
+                            if (debug) {
+                                Log.i(TAGDEGUG, "Pohyb rovno")
+                            }
+                            mYaw = followTargetBearing
+                            mRoll = 5f
+                            mPitch= 0f
+                        }else if (diff > 5 && abs(compass - mYaw) > 0.2) {
+                            if (debug) {
+                                Log.i(TAGDEGUG, "Rotacia")
+                            }
+                            mRoll = 0f
+                            mPitch = 0f
+                            mYaw = lookAtTargetBearing
+                        } else if (diff < 5) {
+                            if (debug) {
+                                Log.i(TAGDEGUG, "Look at pohyb")
+                            }
 
-                        val diff : Float = lookAtTargetBearing - compass
+                            mPitch = 5f * sin(Math.toRadians(headingAngle).toFloat())
+                            mRoll = 5f * cos(Math.toRadians(headingAngle).toFloat())
+                            mYaw = compass
+                        }
+                        if (debug) {
+                            Log.i(TAGDEGUG, "compass\t$compass")
+                            Log.i(TAGDEGUG, "followTB\t$followTargetBearing")
+                            Log.i(TAGDEGUG, "lookTB = \t$lookAtTargetBearing")
+                            Log.i(TAGDEGUG, "distance\t$followTargetDistance")
+                            Log.i(TAGDEGUG, "diff = \t$diff")
+                            Log.i(TAGDEGUG, "yaw\t$mYaw")
+                            Log.i(TAGDEGUG, "roll\t$mRoll")
+                            Log.i(TAGDEGUG, "pitch\t$mPitch")
+                            Log.i(TAGDEGUG, "----------")
+                        }
 
-                        mYaw = lookAtTargetBearing;
-                        mPitch = 5f * sin(Math.toRadians(headingAngle.toDouble()).toFloat())
-                        mRoll = 5f * cos(Math.toRadians(headingAngle.toDouble()).toFloat())
+                        if (debug) {
+                            debug = false
+                        }
 
                     }
                     3 -> {
@@ -507,7 +555,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
 
                 controller.sendVirtualStickFlightControlData(
-                    FlightControlData(-mPitch, mRoll, mYaw, mThrottle)
+                    FlightControlData(mPitch, mRoll, mYaw, mThrottle)
                 ) { djiError ->
                     if (djiError != null) {
                         Log.i(TAG, djiError.description)
