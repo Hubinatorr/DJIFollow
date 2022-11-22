@@ -45,7 +45,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private var lookAtLocation = Location("")
     private lateinit var mBtnStartMission: Button
     private lateinit var webSocketClient: WebSocketClient
-
+    private var followTargetRoll = 0.0
+    private var followTargetPitch = 0.0
     private var mSendVirtualStickDataTimer: Timer? = null
     private var mSendVirtualStickDataTask: SendVirtualStickDataTask? = null
 
@@ -60,6 +61,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private var mission: Int = 0
 
     private val viewModel by viewModels<MainViewModel>()
+
+    class Target(
+        val followTargetLocation : Location,
+        val lookAtTargetLocation : Location,
+        val targetRoll : Double,
+        val targetPitch : Double
+    )
 
     companion object {
         const val TAG = "UserAppMainAct"
@@ -131,13 +139,16 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                     Log.i(TAG, droneData.DroneId)
                     if (droneData.DroneId == "FollowDrone") {
                         if (mission == MISSION.LOOK_AT_FOLLOW.type) {
-                            followTargetLocation.latitude = droneData.Latitude  + 0.0006
+                            followTargetLocation.latitude = droneData.Latitude  + 0.00001
                             followTargetLocation.longitude = droneData.Longitude
                             followTargetLocation.altitude = droneData.Altitude
 
                             lookAtLocation.latitude = droneData.Latitude
                             lookAtLocation.longitude = droneData.Longitude
                             lookAtLocation.altitude = droneData.Altitude
+
+                            followTargetRoll = droneData.Roll
+                            followTargetPitch = droneData.Pitch
                         } else {
                             followTargetLocation.latitude = droneData.Latitude
                             followTargetLocation.longitude = droneData.Longitude
@@ -486,7 +497,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                         }
 
                         val diff : Double = Angle(lookAtTargetBearing.toDouble()).value - Angle(compass.toDouble()).value
-                        if (followTargetDistance < 2) {
+                        if (followTargetDistance < 0.5) {
                             mRoll = 0f
                             mPitch = 0f
                             mYaw = lookAtTargetBearing
@@ -509,8 +520,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                                 Log.i(TAGDEGUG, "Look at pohyb")
                             }
 
-                            mPitch = 5f * sin(Math.toRadians(headingAngle).toFloat())
-                            mRoll = 5f * cos(Math.toRadians(headingAngle).toFloat())
+                            val followTargetSpeed : Double = sqrt(followTargetRoll.pow(2) + followTargetPitch.pow(2))
+
+                            mPitch = followTargetSpeed.toFloat() * sin(Math.toRadians(headingAngle).toFloat())
+                            mRoll = followTargetSpeed.toFloat() * cos(Math.toRadians(headingAngle).toFloat())
                             mYaw = compass
                         }
                         if (debug) {
