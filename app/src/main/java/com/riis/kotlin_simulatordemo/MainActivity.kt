@@ -12,6 +12,7 @@ import android.widget.ToggleButton
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.core.app.Person
 import androidx.lifecycle.lifecycleScope
 import com.beust.klaxon.Klaxon
 import dji.common.flightcontroller.simulator.InitializationData
@@ -49,6 +50,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private var followTargetPitch = 0.0
     private var mSendVirtualStickDataTimer: Timer? = null
     private var mSendVirtualStickDataTask: SendVirtualStickDataTask? = null
+    private var targets: Queue<MissionTarget> = LinkedList<MissionTarget>()
 
     private val rEarth =6378
     private val followRadius = 2f
@@ -59,10 +61,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private var mYaw: Float = 0f
     private var mThrottle: Float = 0f
     private var mission: Int = 0
-
+    private var isClose = false
     private val viewModel by viewModels<MainViewModel>()
 
-    class Target(
+    class MissionTarget(
         val followTargetLocation : Location,
         val lookAtTargetLocation : Location,
         val targetRoll : Double,
@@ -146,7 +148,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                             lookAtLocation.latitude = droneData.Latitude
                             lookAtLocation.longitude = droneData.Longitude
                             lookAtLocation.altitude = droneData.Altitude
-
+                            if (isClose) {
+                                val target = MissionTarget(followTargetLocation, lookAtLocation, droneData.Roll, droneData.Pitch)
+                                targets.add(target)
+                            }
+                            targets
                             followTargetRoll = droneData.Roll
                             followTargetPitch = droneData.Pitch
                         } else {
@@ -386,8 +392,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 mission = MISSION.LOOK_AT_FOLLOW.type
             }
             R.id.btn_hotpoint -> {
-                showToast("Simple Follow set")
-                mission = MISSION.HOTPOINT.type
+                isClose = !isClose
             }
             R.id.btn_start_mission -> {
                 if (mSendVirtualStickDataTimer == null) {
@@ -444,15 +449,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 droneLocation.longitude = location.longitude
                 droneLocation.altitude = location.altitude.toDouble()
 
-//                mYaw = 0.0f
-//                mRoll = 0.0f
-//                mPitch = 0.0f
-//                mThrottle = 0.0f
-
-                val followTargetBearing = droneLocation.bearingTo(followTargetLocation)
-                val followTargetDistance = droneLocation.distanceTo(followTargetLocation)
-                val followTargetAltitudeDifference = abs(round(droneLocation.altitude) - followTargetLocation.altitude)
-                val lookAtTargetBearing = droneLocation.bearingTo(lookAtLocation)
+                var followTargetBearing = droneLocation.bearingTo(followTargetLocation)
+                var followTargetDistance = droneLocation.distanceTo(followTargetLocation)
+                var followTargetAltitudeDifference = abs(round(droneLocation.altitude) - followTargetLocation.altitude)
+                var lookAtTargetBearing = droneLocation.bearingTo(lookAtLocation)
 
                 try {
                     webSocketClient.send(
@@ -467,28 +467,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
                 when (mission) {
                     // Simple follow
-                    1-> {
-                        mThrottle = followTargetLocation.altitude.toFloat()
-                        if (followTargetAltitudeDifference>0.5 || ( abs(controller.state.attitude.yaw-followTargetBearing) > 5) ) {
-                            mYaw=followTargetBearing
-                        }
-
-                        if (followTargetDistance>60) {
-                            mYaw=followTargetBearing
-                            mRoll=AutoFLightSpeed
-                        }
-
-                        if (followTargetDistance>0.5 && followTargetDistance<=60) {
-                            mYaw=followTargetBearing
-                            mRoll= min(followTargetDistance/4, AutoFLightSpeed)
-                        }
-
-                        if (!((followTargetAltitudeDifference>2)||(abs(attitude.yaw-followTargetBearing) > 5)||(followTargetDistance>2 && followTargetDistance<=60)||(followTargetDistance>60))) {
-                            mYaw=followTargetBearing
-                            mRoll=0f
-                        }
-                    }
                     2 -> {
+                        if (isClose && targets.isNotEmpty()) {
+                            followTargetBearing = droneLocation.bearingTo(targets.peek().followTargetLocation)
+                            followTargetDistance = droneLocation.distanceTo(targets.peek().followTargetLocation)
+                            followTargetAltitudeDifference = abs(round(droneLocation.altitude) - targets.peek().followTargetLocation.altitude)
+                            lookAtTargetBearing = droneLocation.bearingTo(targets.peek().lookAtTargetLocation)
+                        }
+
                         val headingAngle = Angle(followTargetBearing.toDouble()).value - Angle(compass.toDouble()).value
 
                         mThrottle = followTargetLocation.altitude.toFloat()
@@ -498,6 +484,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
                         val diff : Double = Angle(lookAtTargetBearing.toDouble()).value - Angle(compass.toDouble()).value
                         if (followTargetDistance < 0.5) {
+                            if (isClose && targets.isNotEmpty()) {targets.remove()}
                             mRoll = 0f
                             mPitch = 0f
                             mYaw = lookAtTargetBearing
@@ -520,10 +507,15 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                                 Log.i(TAGDEGUG, "Look at pohyb")
                             }
 
-                            val followTargetSpeed : Double = sqrt(followTargetRoll.pow(2) + followTargetPitch.pow(2))
+                            if (isClose && targets.isNotEmpty()) {
+                                val followTargetSpeed : Double = sqrt(followTargetRoll.pow(2) + followTargetPitch.pow(2))
+                                mPitch = followTargetSpeed.toFloat() * sin(Math.toRadians(headingAngle).toFloat())
+                                mRoll = followTargetSpeed.toFloat() * cos(Math.toRadians(headingAngle).toFloat())
+                            } else {
+                                mPitch = 3f * sin(Math.toRadians(headingAngle).toFloat())
+                                mRoll = 3f * cos(Math.toRadians(headingAngle).toFloat())
+                            }
 
-                            mPitch = followTargetSpeed.toFloat() * sin(Math.toRadians(headingAngle).toFloat())
-                            mRoll = followTargetSpeed.toFloat() * cos(Math.toRadians(headingAngle).toFloat())
                             mYaw = compass
                         }
                         if (debug) {
@@ -542,6 +534,27 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                             debug = false
                         }
 
+                    }
+                    1-> {
+                        mThrottle = followTargetLocation.altitude.toFloat()
+                        if (followTargetAltitudeDifference>0.5 || ( abs(controller.state.attitude.yaw-followTargetBearing) > 5) ) {
+                            mYaw=followTargetBearing
+                        }
+
+                        if (followTargetDistance>60) {
+                            mYaw=followTargetBearing
+                            mRoll=AutoFLightSpeed
+                        }
+
+                        if (followTargetDistance>0.5 && followTargetDistance<=60) {
+                            mYaw=followTargetBearing
+                            mRoll= min(followTargetDistance/4, AutoFLightSpeed)
+                        }
+
+                        if (!((followTargetAltitudeDifference>2)||(abs(attitude.yaw-followTargetBearing) > 5)||(followTargetDistance>2 && followTargetDistance<=60)||(followTargetDistance>60))) {
+                            mYaw=followTargetBearing
+                            mRoll=0f
+                        }
                     }
                     3 -> {
                         if (followTargetAltitudeDifference > 2) {

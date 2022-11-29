@@ -126,7 +126,7 @@
         android:layout_marginTop="121dp"
         android:layout_marginEnd="258dp"
         android:layout_toEndOf="@+id/btn_take_off"
-        android:text="Hotpoint" />
+        android:text="close" />
 
     <Button
         android:id="@+id/btn_start_mission"
