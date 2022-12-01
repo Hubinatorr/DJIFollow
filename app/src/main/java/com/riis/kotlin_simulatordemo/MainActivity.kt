@@ -42,7 +42,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private lateinit var mBtnWaypoint: Button
     private lateinit var mBtnFollow: Button
     private lateinit var mBtnHotpoint: Button
-    private var followTargetLocation = Location("")
+    private var followTargetLocation: DroneData? = null
     private var lookAtLocation = Location("")
     private lateinit var mBtnStartMission: Button
     private lateinit var webSocketClient: WebSocketClient
@@ -50,7 +50,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private var followTargetPitch = 0.0
     private var mSendVirtualStickDataTimer: Timer? = null
     private var mSendVirtualStickDataTask: SendVirtualStickDataTask? = null
-    private var targets: Queue<MissionTarget> = LinkedList<MissionTarget>()
+    private var targets: Queue<DroneData> = LinkedList<DroneData>()
 
     private val rEarth =6378
     private val followRadius = 2f
@@ -63,13 +63,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private var mission: Int = 0
     private var isClose = false
     private val viewModel by viewModels<MainViewModel>()
-
-    class MissionTarget(
-        val followTargetLocation : Location,
-        val lookAtTargetLocation : Location,
-        val targetRoll : Double,
-        val targetPitch : Double
-    )
 
     companion object {
         const val TAG = "UserAppMainAct"
@@ -106,6 +99,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             ), 1
         )
         viewModel.startSdkRegistration(this)
+        val flightData = resources.openRawResource(R.raw.data)
+        val droneData = Klaxon().parseArray<DroneData>(flightData)
+        if (droneData != null) {
+            for (target in droneData) {
+                targets.add(target)
+            }
+        }
+
         initObservers()
         initUi()
         createWebSocketClient()
@@ -119,7 +120,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         val Pitch : Double,
         val Roll: Double,
         val Yaw: Double,
-        val Compass: Double
+        val Compass: Double,
+        val velocityX: Double,
+        val velocityY: Double,
+        val velocityZ: Double
         )
 
     private fun createWebSocketClient() {
@@ -140,26 +144,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 if (droneData != null) {
                     Log.i(TAG, droneData.DroneId)
                     if (droneData.DroneId == "FollowDrone") {
-                        if (mission == MISSION.LOOK_AT_FOLLOW.type) {
-                            followTargetLocation.latitude = droneData.Latitude  + 0.00001
-                            followTargetLocation.longitude = droneData.Longitude
-                            followTargetLocation.altitude = droneData.Altitude
-
-                            lookAtLocation.latitude = droneData.Latitude
-                            lookAtLocation.longitude = droneData.Longitude
-                            lookAtLocation.altitude = droneData.Altitude
-                            if (isClose) {
-                                val target = MissionTarget(followTargetLocation, lookAtLocation, droneData.Roll, droneData.Pitch)
-                                targets.add(target)
-                            }
-                            targets
-                            followTargetRoll = droneData.Roll
-                            followTargetPitch = droneData.Pitch
-                        } else {
-                            followTargetLocation.latitude = droneData.Latitude
-                            followTargetLocation.longitude = droneData.Longitude
-                            followTargetLocation.altitude = droneData.Altitude
-                        }
+                        followTargetLocation = droneData
+                        targets.add(droneData)
                     }
                 } else {
                     Log.i(TAG, "Parse incorrect")
@@ -260,50 +246,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 }
             }
         }
-
-//        mScreenJoystickRight.setJoystickListener(object : OnScreenJoystickListener {
-//            override fun onTouch(joystick: OnScreenJoystick?, pXP: Float, pYP: Float) {
-//                var pX = pXP
-//                var pY = pYP
-//                if (abs(pX) < 0.02) {
-//                    pX = 0f
-//                }
-//                if (abs(pY) < 0.02) {
-//                    pY = 0f
-//                }
-//                val pitchJoyControlMaxSpeed = 10f
-//                val rollJoyControlMaxSpeed = 10f
-//                mPitch = (pitchJoyControlMaxSpeed * pX)
-//                mRoll = (rollJoyControlMaxSpeed * pY)
-//                if (null == mSendVirtualStickDataTimer) {
-//                    mSendVirtualStickDataTask = SendVirtualStickDataTask()
-//                    mSendVirtualStickDataTimer = Timer()
-//                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 100, 200)
-//                }
-//            }
-//        })
-//
-//        mScreenJoystickLeft.setJoystickListener(object : OnScreenJoystickListener {
-//            override fun onTouch(joystick: OnScreenJoystick?, pX: Float, pY: Float) {
-//                var pX = pX
-//                var pY = pY
-//                if (abs(pX) < 0.02) {
-//                    pX = 0f
-//                }
-//                if (abs(pY) < 0.02) {
-//                    pY = 0f
-//                }
-//                val verticalJoyControlMaxSpeed = 2f
-//                val yawJoyControlMaxSpeed = 30f
-//                mYaw = (yawJoyControlMaxSpeed * pX)
-//                mThrottle = (verticalJoyControlMaxSpeed * pY)
-//                if (null == mSendVirtualStickDataTimer) {
-//                    mSendVirtualStickDataTask = SendVirtualStickDataTask()
-//                    mSendVirtualStickDataTimer = Timer()
-//                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 200)
-//                }
-//            }
-//        })
     }
 
     private fun initFlightController() {
@@ -398,7 +340,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 if (mSendVirtualStickDataTimer == null) {
                     mSendVirtualStickDataTask = SendVirtualStickDataTask()
                     mSendVirtualStickDataTimer = Timer()
-                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 40)
+                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 50)
                 }
             }
         }
@@ -435,11 +377,25 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
         operator fun minus(other: Angle) = Angle(this.value - other.value)
     }
+
+    private fun getLocation(latitude: Double, longitude: Double, altitude: Double): Location
+    {
+        val location = Location("")
+        location.latitude = latitude
+        location.longitude = longitude
+        location.altitude = altitude
+
+        return location
+    }
+    private var countIteration = 0
+    private var speed = 0.0;
+    private var start = false
+    private lateinit var cureentTarget : DroneData
     inner class SendVirtualStickDataTask: TimerTask() {
         override fun run() {
             viewModel.getFlightController()?.let { controller ->
                 val droneLocation = Location("")
-
+                debug = true
                 val state = controller.state;
                 val location = state.aircraftLocation
                 val attitude = state.attitude
@@ -449,95 +405,122 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 droneLocation.longitude = location.longitude
                 droneLocation.altitude = location.altitude.toDouble()
 
-                var followTargetBearing = droneLocation.bearingTo(followTargetLocation)
-                var followTargetDistance = droneLocation.distanceTo(followTargetLocation)
-                var followTargetAltitudeDifference = abs(round(droneLocation.altitude) - followTargetLocation.altitude)
-                var lookAtTargetBearing = droneLocation.bearingTo(lookAtLocation)
+                mPitch = 0f
+                mRoll = 0f
+                countIteration ++
+                if (isClose) {
+                    Log.i(TAGDEGUG, "-----------------------------")
 
-                try {
-                    webSocketClient.send(
-                        "{\"DroneId\":\"DJI-Mavic"+ "\",\"Altitude\":" + location.altitude + ",\"Latitude\":"
-                                + location.latitude + ",\"Longitude\":" + location.longitude
-                                + ",\"Pitch\":" + attitude.pitch + ",\"Roll\":" + attitude.roll + ",\"Yaw\":" + attitude.yaw
-                                + ",\"Compass\":" + compass + "}"
-                    )
-                } catch (e: Exception) {
-                    Log.i(TAG, e.toString())
-                }
-
-                when (mission) {
-                    // Simple follow
-                    2 -> {
-                        if (isClose && targets.isNotEmpty()) {
-                            followTargetBearing = droneLocation.bearingTo(targets.peek().followTargetLocation)
-                            followTargetDistance = droneLocation.distanceTo(targets.peek().followTargetLocation)
-                            followTargetAltitudeDifference = abs(round(droneLocation.altitude) - targets.peek().followTargetLocation.altitude)
-                            lookAtTargetBearing = droneLocation.bearingTo(targets.peek().lookAtTargetLocation)
-                        }
-
-                        val headingAngle = Angle(followTargetBearing.toDouble()).value - Angle(compass.toDouble()).value
-
-                        mThrottle = followTargetLocation.altitude.toFloat()
-                        if (debug) {
-                            Log.i(TAGDEGUG, "----------")
-                        }
-
-                        val diff : Double = Angle(lookAtTargetBearing.toDouble()).value - Angle(compass.toDouble()).value
-                        if (followTargetDistance < 0.5) {
-                            if (isClose && targets.isNotEmpty()) {targets.remove()}
-                            mRoll = 0f
-                            mPitch = 0f
-                            mYaw = lookAtTargetBearing
-                        } else if (followTargetDistance > 20){
-                            if (debug) {
-                                Log.i(TAGDEGUG, "Pohyb rovno")
-                            }
-                            mYaw = followTargetBearing
-                            mRoll = 5f
-                            mPitch= 0f
-                        }else if (diff > 5 && abs(compass - mYaw) > 0.2) {
-                            if (debug) {
-                                Log.i(TAGDEGUG, "Rotacia")
-                            }
-                            mRoll = 0f
-                            mPitch = 0f
-                            mYaw = lookAtTargetBearing
-                        } else if (diff < 5) {
-                            if (debug) {
-                                Log.i(TAGDEGUG, "Look at pohyb")
-                            }
-
-                            if (isClose && targets.isNotEmpty()) {
-                                val followTargetSpeed : Double = sqrt(followTargetRoll.pow(2) + followTargetPitch.pow(2))
-                                mPitch = followTargetSpeed.toFloat() * sin(Math.toRadians(headingAngle).toFloat())
-                                mRoll = followTargetSpeed.toFloat() * cos(Math.toRadians(headingAngle).toFloat())
-                            } else {
-                                mPitch = 3f * sin(Math.toRadians(headingAngle).toFloat())
-                                mRoll = 3f * cos(Math.toRadians(headingAngle).toFloat())
-                            }
-
-                            mYaw = compass
-                        }
-                        if (debug) {
-                            Log.i(TAGDEGUG, "compass\t$compass")
-                            Log.i(TAGDEGUG, "followTB\t$followTargetBearing")
-                            Log.i(TAGDEGUG, "lookTB = \t$lookAtTargetBearing")
-                            Log.i(TAGDEGUG, "distance\t$followTargetDistance")
-                            Log.i(TAGDEGUG, "diff = \t$diff")
-                            Log.i(TAGDEGUG, "yaw\t$mYaw")
-                            Log.i(TAGDEGUG, "roll\t$mRoll")
-                            Log.i(TAGDEGUG, "pitch\t$mPitch")
-                            Log.i(TAGDEGUG, "----------")
-                        }
-
-                        if (debug) {
-                            debug = false
-                        }
-
+                    try {
+                        webSocketClient.send(
+                            "S," + location.latitude + "," + location.longitude
+                        )
+                    } catch (e: Exception) {
+                        Log.i(TAG, e.toString())
                     }
-                    1-> {
-                        mThrottle = followTargetLocation.altitude.toFloat()
-                        if (followTargetAltitudeDifference>0.5 || ( abs(controller.state.attitude.yaw-followTargetBearing) > 5) ) {
+
+                    if (speed > 0.1) {
+                        if (targets.count() > 0) {
+                            var lookAt = targets.peek()
+                            val followTargetLocation = getLocation(lookAt.Latitude, lookAt.Longitude + 0.00003, lookAt.Altitude)
+                            val lookAtTargetLocation = getLocation(lookAt.Latitude, lookAt.Longitude , lookAt.Altitude)
+                            val followTargetBearing = droneLocation.bearingTo(followTargetLocation)
+                            val followTargetDistance = droneLocation.distanceTo(followTargetLocation)
+                            val followTargetAltitudeDifference = abs(round(droneLocation.altitude) - followTargetLocation.altitude)
+                            val lookAtTargetBearing = droneLocation.bearingTo(lookAtTargetLocation)
+
+                            val headingAngle = Angle(followTargetBearing.toDouble()).value - Angle(compass.toDouble()).value
+                            val diff : Double = Angle(lookAtTargetBearing.toDouble()).value - Angle(compass.toDouble()).value
+
+                            mThrottle = followTargetLocation.altitude.toFloat()
+
+                            if (countIteration == 10) {
+                                Log.i(TAGDEGUG, "-----------------------------")
+                                Log.i(TAGDEGUG, "followTargetBearing $followTargetBearing")
+                                Log.i(TAGDEGUG, "lookAtTargetBearing $lookAtTargetBearing")
+                                Log.i(TAGDEGUG, "followTargetDistance $followTargetDistance")
+                                Log.i(TAGDEGUG, "compass $compass")
+                                Log.i(TAGDEGUG, "headingAngle $headingAngle")
+                                Log.i(TAGDEGUG, "diff $diff")
+                                Log.i(TAGDEGUG, "speed $speed")
+                                Log.i(TAGDEGUG, "-----------------------------")
+                            }
+
+
+                            if (followTargetDistance < 0.5) {
+                                var target = targets.peek()
+                                speed = sqrt(target.velocityX.pow(2) + target.velocityY.pow(2))
+                                targets.remove()
+                                if (countIteration == 10) {
+                                    Log.i(TAGDEGUG, "Removed")
+                                }
+
+                                mRoll = 0f
+                                mPitch = 0f
+                                mYaw = lookAtTargetBearing
+
+                            } else if (followTargetDistance > 20){
+                                if (countIteration == 10) {
+                                    Log.i(TAGDEGUG, "Rovno")
+                                }
+
+                                mYaw = followTargetBearing
+                                mRoll = 5f
+                                mPitch= 0f
+                            }else if (diff > 3 && abs(compass - mYaw) > 0.2) {
+                                if (countIteration == 10) {
+                                    Log.i(TAGDEGUG, "Roracia")
+                                }
+
+                                mRoll = 0f
+                                mPitch = 0f
+                                mYaw = lookAtTargetBearing
+                            } else if (diff < 3) {
+                                if (countIteration == 10) {
+                                    Log.i(TAGDEGUG, "Pohyb")
+                                }
+                                mPitch = speed.toFloat() * sin(Math.toRadians(headingAngle).toFloat())
+                                mRoll = speed.toFloat() * cos(Math.toRadians(headingAngle).toFloat())
+                                mYaw = compass
+                            }
+                        }
+                    } else {
+                        var target = targets.peek()
+                        speed = sqrt(target.velocityX.pow(2) + target.velocityY.pow(2))
+                        targets.remove()
+                    }
+                } else {
+                    val goTo = targets.peek()
+                    val lookLocation = Location("")
+                    lookLocation.altitude = goTo.Altitude
+                    lookLocation.latitude = goTo.Latitude
+                    lookLocation.longitude = goTo.Longitude
+
+                    val followLocation = Location("")
+                    followLocation.altitude = goTo.Altitude
+                    followLocation.latitude = goTo.Latitude
+                    followLocation.longitude = goTo.Longitude + 0.00003
+
+                    var followTargetBearing = droneLocation.bearingTo(followLocation)
+                    var followTargetDistance = droneLocation.distanceTo(followLocation)
+                    var followTargetAltitudeDifference = abs(round(droneLocation.altitude) - followLocation.altitude)
+                    var lookAtTargetBearing = droneLocation.bearingTo(lookLocation)
+
+                    mThrottle = followLocation.altitude.toFloat()
+                    if (followTargetDistance <= 0.3) {
+                        val diff : Double = Angle(lookAtTargetBearing.toDouble()).value - Angle(compass.toDouble()).value
+                        if (diff < 2) {
+                            isClose = true
+                            var target = targets.peek()
+                            speed = sqrt(target.velocityX.pow(2) + target.velocityY.pow(2))
+                            targets.remove()
+                            Log.i(TAGDEGUG, "jeClose")
+                        }
+                        mYaw= lookAtTargetBearing
+                        mPitch = 0f
+                        mRoll = 0f
+                    } else {
+                        if (followTargetAltitudeDifference>0.3 || ( abs(controller.state.attitude.yaw-followTargetBearing) > 5) ) {
                             mYaw=followTargetBearing
                         }
 
@@ -546,39 +529,22 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                             mRoll=AutoFLightSpeed
                         }
 
-                        if (followTargetDistance>0.5 && followTargetDistance<=60) {
+                        if (followTargetDistance>0.3 && followTargetDistance<=60) {
                             mYaw=followTargetBearing
                             mRoll= min(followTargetDistance/4, AutoFLightSpeed)
-                        }
-
-                        if (!((followTargetAltitudeDifference>2)||(abs(attitude.yaw-followTargetBearing) > 5)||(followTargetDistance>2 && followTargetDistance<=60)||(followTargetDistance>60))) {
-                            mYaw=followTargetBearing
-                            mRoll=0f
-                        }
-                    }
-                    3 -> {
-                        if (followTargetAltitudeDifference > 2) {
-                            mThrottle = followTargetLocation.altitude.toFloat()
-                            mYaw = followTargetBearing
-                        } else {
-                            mThrottle = followTargetLocation.altitude.toFloat()
-                            mYaw = followTargetBearing
-
-                            if (abs(followTargetDistance - HPRadius) > 10) {
-                                mPitch = 0f
-                            } else {
-                                mPitch = min(15f,(HPRadius/5f))
-                            }
-
-                            if (abs(followTargetDistance - HPRadius) > 0.2) {
-                                mRoll = min(15f, (followTargetDistance - HPRadius)/4)
-                            } else {
-                                mRoll = 0f
-                            }
                         }
                     }
                 }
 
+                if (countIteration == 10) {
+                    Log.i(TAGDEGUG, "-----------------------------")
+                    Log.i(TAGDEGUG, "mPitch $mPitch")
+                    Log.i(TAGDEGUG, "mRoll $mRoll")
+                    Log.i(TAGDEGUG, "mYaw $mYaw")
+                    Log.i(TAGDEGUG, "mThrottle $mThrottle")
+                    Log.i(TAGDEGUG, "-----------------------------")
+                    countIteration = 0
+                }
 
                 controller.sendVirtualStickFlightControlData(
                     FlightControlData(mPitch, mRoll, mYaw, mThrottle)
