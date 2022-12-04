@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -9,7 +10,7 @@
         android:id="@+id/main_title_rl"
         android:layout_width="fill_parent"
         android:layout_height="40dp"
-        android:background="@color/black_overlay" >
+        android:background="@color/black_overlay">
 
         <ImageButton
             android:id="@+id/ReturnBtn"
@@ -22,7 +23,8 @@
             android:background="@android:color/transparent"
             android:onClick="onReturn"
             android:scaleType="centerInside"
-            android:src="@drawable/selector_back_button" />
+            android:src="@drawable/selector_back_button"
+            tools:ignore="TouchTargetSizeCheck,SpeakableTextPresentCheck" />
 
         <TextView
             android:id="@+id/ConnectStatusTextView"
@@ -34,148 +36,87 @@
             android:textSize="19sp" />
     </RelativeLayout>
 
-    <TextView
-        android:layout_marginTop="70dp"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_centerHorizontal="true"
-        android:text="Simulator is off."
-        android:id="@+id/textview_simulator"/>
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="231dp">
 
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Enable Virtual Stick"
-        style="@style/common_button"
-        android:id="@+id/btn_enable_virtual_stick"
-        android:layout_marginLeft="5dp"
-        android:layout_alignTop="@+id/btn_start_simulator"
-        android:layout_alignStart="@+id/directionJoystickLeft"
-        android:layout_marginTop="0dp" />
+        <Button
+            android:id="@+id/btn_land"
+            style="@style/common_button"
+            android:layout_width="87dp"
+            android:layout_height="43dp"
+            android:text="Land"
+            app:layout_constraintEnd_toStartOf="@+id/btn_disable_virtual_stick"
+            app:layout_constraintStart_toEndOf="@+id/btn_start_follow"
+            app:layout_constraintTop_toBottomOf="@+id/btn_take_off" />
 
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Disable Virtual Stick"
-        style="@style/common_button"
-        android:id="@+id/btn_disable_virtual_stick"
-        android:layout_below="@+id/btn_enable_virtual_stick"
-        android:layout_alignStart="@+id/btn_enable_virtual_stick"
-        android:layout_marginLeft="0dp"
-        android:layout_alignEnd="@+id/btn_enable_virtual_stick" />
+        <Button
+            android:id="@+id/btn_take_off"
+            style="@style/common_button"
+            android:layout_width="88dp"
+            android:layout_height="45dp"
+            android:layout_marginTop="96dp"
+            android:text="Take Off"
+            app:layout_constraintEnd_toStartOf="@+id/btn_enable_virtual_stick"
+            app:layout_constraintStart_toEndOf="@+id/btn_start_mission"
+            app:layout_constraintTop_toTopOf="parent" />
 
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Take Off"
-        style="@style/common_button"
-        android:id="@+id/btn_take_off"
-        android:layout_alignTop="@+id/btn_disable_virtual_stick"
-        android:layout_alignStart="@+id/btn_start_simulator"
-        android:layout_marginTop="0dp"
-        android:layout_alignEnd="@+id/btn_start_simulator" />
+        <Button
+            android:id="@+id/btn_disable_virtual_stick"
+            style="@style/common_button"
+            android:layout_width="0dp"
+            android:layout_height="47dp"
+            android:layout_marginEnd="12dp"
+            android:layout_marginBottom="32dp"
+            android:text="Disable Virtual Stick"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
 
-    <ToggleButton
-        android:id="@+id/btn_start_simulator"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Start Simulator"
-        android:textOff="Start Simulator"
-        android:textOn="Stop Simulator"
-        style="@style/common_button"
-        android:layout_below="@+id/textview_simulator"
-        android:layout_toEndOf="@+id/btn_enable_virtual_stick"
-        android:layout_marginTop="107dp"
-        android:layout_marginLeft="10dp" />
+        <Button
+            android:id="@+id/btn_start_follow"
+            style="@style/common_button"
+            android:layout_width="126dp"
+            android:layout_height="43dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginBottom="36dp"
+            android:text="Start Follow"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
 
-    <Button
-        android:id="@+id/btn_land"
-        style="@style/common_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignTop="@+id/btn_take_off"
-        android:layout_alignEnd="@+id/directionJoystickRight"
-        android:layout_marginLeft="10dp"
-        android:layout_marginTop="0dp"
-        android:layout_toEndOf="@+id/btn_take_off"
-        android:text="Land" />
+        <Button
+            android:id="@+id/btn_start_mission"
+            style="@style/common_button"
+            android:layout_width="125dp"
+            android:layout_height="45dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="96dp"
+            android:text="Start Mission"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
-    <Button
-        android:id="@+id/btn_waypoint"
-        style="@style/common_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignTop="@+id/btn_take_off"
-        android:layout_alignEnd="@+id/directionJoystickRight"
-        android:layout_marginStart="10dp"
-        android:layout_marginLeft="10dp"
-        android:layout_marginTop="-58dp"
-        android:layout_marginEnd="0dp"
-        android:layout_toEndOf="@+id/btn_take_off"
-        android:text="Waypoint" />
+        <Button
+            android:id="@+id/btn_enable_virtual_stick"
+            style="@style/common_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="96dp"
+            android:layout_marginEnd="16dp"
+            android:text="Enable Virtual Stick"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
-    <Button
-        android:id="@+id/btn_hotpoint"
-        style="@style/common_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignTop="@+id/btn_take_off"
-        android:layout_alignEnd="@+id/directionJoystickRight"
-        android:layout_marginStart="-241dp"
-        android:layout_marginLeft="10dp"
-        android:layout_marginTop="121dp"
-        android:layout_marginEnd="258dp"
-        android:layout_toEndOf="@+id/btn_take_off"
-        android:text="close" />
+        <TextView
+            android:id="@+id/followStatusTextVIew"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="FollowStatus"
+            app:layout_constraintBottom_toTopOf="@+id/btn_take_off"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.766" />
 
-    <Button
-        android:id="@+id/btn_start_mission"
-        style="@style/common_button"
-        android:layout_width="133dp"
-        android:layout_height="wrap_content"
-        android:layout_alignTop="@+id/btn_take_off"
-        android:layout_alignEnd="@+id/directionJoystickRight"
-        android:layout_marginStart="-246dp"
-        android:layout_marginLeft="10dp"
-        android:layout_marginTop="60dp"
-        android:layout_marginEnd="254dp"
-        android:layout_toEndOf="@+id/btn_take_off"
-        android:text="Start Mission" />
-
-    <Button
-        android:id="@+id/btn_follow"
-        style="@style/common_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignTop="@+id/btn_take_off"
-        android:layout_alignEnd="@+id/directionJoystickRight"
-        android:layout_marginStart="9dp"
-        android:layout_marginLeft="10dp"
-        android:layout_marginTop="66dp"
-        android:layout_marginEnd="7dp"
-        android:layout_toEndOf="@+id/btn_take_off"
-        android:text="Follow" />
-
-    <com.riis.kotlin_simulatordemo.OnScreenJoystick
-        android:id="@+id/directionJoystickLeft"
-        android:layout_width="130dp"
-        android:layout_height="130dp"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentBottom="true"
-        android:layout_marginLeft="10dp"
-        android:layout_marginBottom="10dp"
-        android:background="@mipmap/joystick_bg"
-        android:visibility="visible" />
-
-    <com.riis.kotlin_simulatordemo.OnScreenJoystick
-        android:id="@+id/directionJoystickRight"
-        android:layout_width="130dp"
-        android:layout_height="130dp"
-        android:layout_alignParentRight="true"
-        android:layout_alignParentBottom="true"
-        android:layout_marginRight="10dp"
-        android:layout_marginBottom="10dp"
-        android:background="@mipmap/joystick_bg" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
 
 </RelativeLayout>
