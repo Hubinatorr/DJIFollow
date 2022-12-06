@@ -74,7 +74,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 droneManager.targets.add(target)
             }
         }
-
         initObservers()
         initUi()
         createWebSocketClient()
@@ -93,14 +92,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             }
 
             override fun onMessage(s: String) {
-                val droneData = Klaxon().parse<DroneData>(s)
-                if (droneData != null) {
-                    if (droneData.DroneId == "FollowDrone") {
-                        droneManager.targets.add(droneData)
-                    }
-                } else {
-                    Log.i(UI, "Parse incorrect")
-                }
+//                val droneData = Klaxon().parse<DroneData>(s)
+//                if (droneData != null) {
+//                    droneManager.targets.add(droneData)
+//                } else {
+//                    Log.i(UI, "Parse incorrect")
+//                }
             }
 
             override fun onClose(i: Int, s: String, b: Boolean) {
@@ -229,7 +226,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 if (mSendVirtualStickDataTimer == null) {
                     mSendVirtualStickDataTask = SendVirtualStickDataTask()
                     mSendVirtualStickDataTimer = Timer()
-                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 50)
+                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 40)
                 }
             }
             R.id.btn_start_follow -> {

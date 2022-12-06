@@ -3,6 +3,7 @@ package com.riis.kotlin_simulatordemo
 import android.location.Location
 import android.util.Log
 import android.widget.TextView
+import com.beust.klaxon.Klaxon
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.SphericalUtil
 import dji.common.flightcontroller.LocationCoordinate3D
@@ -32,9 +33,14 @@ class DroneManager {
     private var mAltitudeOffset = 0.0
     private var mSpeed = 0.0
 
-    fun calculateFollowData(controller: FlightController, webSocketClient: WebSocketClient ) {
-        val target = targets.peek() ?: return
+    private lateinit var target: DroneData
+    private lateinit var prevLocation: Location
+    private lateinit var prevTarget: DroneData
 
+    private var beginPrimaryTimestamp = 0L
+    private var beginSecondaryTimestamp = 0L
+    private var first = false
+    fun calculateFollowData(controller: FlightController, webSocketClient: WebSocketClient ) {
         val location = controller.state.aircraftLocation
         val compass = controller.compass.heading
         val droneLocation = location(location.latitude, location.longitude, location.altitude.toDouble())
@@ -47,44 +53,60 @@ class DroneManager {
                 goToLocation(droneLocation, compass)
             }
             FollowStage.ON -> {
-                try { webSocketClient.send("T," + location.latitude + "," + location.longitude + ',' + System.currentTimeMillis()) }
+                target = targets.peek() ?: return
+                try { webSocketClient.send("T," + location.latitude + "," + location.longitude + "," + (beginPrimaryTimestamp + (System.currentTimeMillis() - beginSecondaryTimestamp))) }
                 catch (e: Exception) { Log.i(MainActivity.UI, e.toString()) }
 
                 mThrottle = target.Altitude.toFloat()
 
-                mSpeed = sqrt(target.velocityX.pow(2) + target.velocityY.pow(2))
+                var prevTargetLocation = getOffsetLocation(prevTarget.Latitude, prevTarget.Longitude, prevTarget.Altitude)
+                var targetLocation = getOffsetLocation(target.Latitude, target.Longitude, target.Altitude)
+
+
+
+                if (first) {
+                    beginSecondaryTimestamp = System.currentTimeMillis()
+                    beginPrimaryTimestamp = prevTarget.Timestamp
+                    var s = targetLocation.distanceTo(prevTargetLocation)
+                    var t = (target.Timestamp - prevTarget.Timestamp) / 1000.0
+                    mSpeed = s/t
+                    first = false
+                    Log.i(MainActivity.TAGDEGUG, "------------")
+                    Log.i(MainActivity.TAGDEGUG, "s $s")
+                    Log.i(MainActivity.TAGDEGUG, "t $t")
+                    Log.i(MainActivity.TAGDEGUG, "tt ${target.Timestamp}")
+                    Log.i(MainActivity.TAGDEGUG, "t ${prevTarget.Timestamp}")
+
+                } else {
+                    var sPrimary = prevTargetLocation.distanceTo(targetLocation)
+                    var sSecondary = droneLocation.distanceTo(targetLocation)
+                    Log.i(MainActivity.TAGDEGUG, "------------")
+                    Log.i(MainActivity.TAGDEGUG, "tt ${target.Timestamp}")
+                    Log.i(MainActivity.TAGDEGUG, "droneTT ${System.currentTimeMillis()}")
+
+                    var s = droneLocation.distanceTo(targetLocation)
+                    var t = ((target.Timestamp - beginPrimaryTimestamp) - (System.currentTimeMillis() - beginSecondaryTimestamp)) / 1000.0
+                    Log.i(MainActivity.TAGDEGUG, "s $s")
+                    Log.i(MainActivity.TAGDEGUG, "t $t")
+
+                    mSpeed = (s/t)
+                }
 
                 mPitch = 0f
                 mRoll = 0f
                 mYaw = compass
 
+                Log.i(MainActivity.TAGDEGUG, "speed $mSpeed")
                 if (mSpeed > 0.0) {
-                    var followTargetBearing: Double
-                    if (target.velocityY == 0.0) {
-                        followTargetBearing = if (target.velocityX > 0) 0.0 else 180.0
-                    } else if (target.velocityX == 0.0) {
-                        followTargetBearing = if (target.velocityY > 0) 90.0 else -90.0
-                    } else {
-                        followTargetBearing =
-                            Math.toDegrees(Math.atan(target.velocityY / target.velocityX))
-                        if (target.velocityX < 0) {
-                            followTargetBearing += if (target.velocityY < 0) {
-                                -180
-                            } else {
-                                180
-                            }
-                        }
-                    }
-
                     val headingAngle =
-                        Angle(followTargetBearing).value - Angle(compass.toDouble()).value
+                        Angle(droneLocation.bearingTo(targetLocation).toDouble()).value - Angle(compass.toDouble()).value
 
                     mPitch = (mSpeed * sin(Math.toRadians(headingAngle))).toFloat()
                     mRoll = (mSpeed * cos(Math.toRadians(headingAngle))).toFloat()
-                    mYaw = compass
 
                 }
-
+                prevLocation = droneLocation
+                prevTarget = target
                 targets.remove()
             } else -> {
 
@@ -101,8 +123,8 @@ class DroneManager {
     }
 
     private fun goToLocation(droneLocation: Location, compass: Float) {
-        val target = targets.peek() ?: return
-
+        val target = targets.peek()
+            ?: return
         val lookLocation = location(target.Latitude, target.Longitude, target.Altitude)
         val followLocation = getOffsetLocation(target.Latitude, target.Longitude, target.Altitude)
 
@@ -112,11 +134,14 @@ class DroneManager {
         val lookAtTargetBearing = droneLocation.bearingTo(lookLocation)
 
         mThrottle = followLocation.altitude.toFloat()
-        if (followTargetDistance <= 0.3) {
+        if (followTargetDistance <= 0.1) {
             val diff: Double =
                 Angle(lookAtTargetBearing.toDouble()).value - Angle(compass.toDouble()).value
-            if (diff < 2) {
+            if (diff < 1) {
                 followStage = FollowStage.ON
+                prevTarget = target
+                first = true
+                targets.remove()
             }
             mYaw = lookAtTargetBearing
             mPitch = 0f
@@ -131,7 +156,7 @@ class DroneManager {
                 mRoll = autoFLightSpeed
             }
 
-            if (followTargetDistance > 0.3 && followTargetDistance <= 60) {
+            if (followTargetDistance > 0.1 && followTargetDistance <= 60) {
                 mYaw = followTargetBearing
                 mRoll = min(followTargetDistance / 4, autoFLightSpeed)
             }
@@ -182,5 +207,6 @@ class DroneData(
     val Compass: Double,
     val velocityX: Double,
     val velocityY: Double,
-    val velocityZ: Double
+    val velocityZ: Double,
+    val Timestamp: Long
 )
