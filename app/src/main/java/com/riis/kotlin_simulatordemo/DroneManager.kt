@@ -42,7 +42,7 @@ class DroneManager {
     private var first = false
     fun calculateFollowData(controller: FlightController, webSocketClient: WebSocketClient ) {
         val location = controller.state.aircraftLocation
-        val compass = controller.compass.heading
+        val compass = controller.state.attitude.yaw
         val droneLocation = location(location.latitude, location.longitude, location.altitude.toDouble())
 
         mPitch = 0f
@@ -62,8 +62,6 @@ class DroneManager {
                 var prevTargetLocation = getOffsetLocation(prevTarget.Latitude, prevTarget.Longitude, prevTarget.Altitude)
                 var targetLocation = getOffsetLocation(target.Latitude, target.Longitude, target.Altitude)
 
-
-
                 if (first) {
                     beginSecondaryTimestamp = System.currentTimeMillis()
                     beginPrimaryTimestamp = prevTarget.Timestamp
@@ -71,39 +69,41 @@ class DroneManager {
                     var t = (target.Timestamp - prevTarget.Timestamp) / 1000.0
                     mSpeed = s/t
                     first = false
-                    Log.i(MainActivity.TAGDEGUG, "------------")
-                    Log.i(MainActivity.TAGDEGUG, "s $s")
-                    Log.i(MainActivity.TAGDEGUG, "t $t")
-                    Log.i(MainActivity.TAGDEGUG, "tt ${target.Timestamp}")
-                    Log.i(MainActivity.TAGDEGUG, "t ${prevTarget.Timestamp}")
 
                 } else {
                     var sPrimary = prevTargetLocation.distanceTo(targetLocation)
                     var sSecondary = droneLocation.distanceTo(targetLocation)
+                    var s = droneLocation.distanceTo(targetLocation)
+                    var t = ((target.Timestamp - beginPrimaryTimestamp) - (System.currentTimeMillis() - beginSecondaryTimestamp)) / 1000.0
+
+
+                    mSpeed = (s/t)
                     Log.i(MainActivity.TAGDEGUG, "------------")
                     Log.i(MainActivity.TAGDEGUG, "tt ${target.Timestamp}")
                     Log.i(MainActivity.TAGDEGUG, "droneTT ${System.currentTimeMillis()}")
-
-                    var s = droneLocation.distanceTo(targetLocation)
-                    var t = ((target.Timestamp - beginPrimaryTimestamp) - (System.currentTimeMillis() - beginSecondaryTimestamp)) / 1000.0
                     Log.i(MainActivity.TAGDEGUG, "s $s")
                     Log.i(MainActivity.TAGDEGUG, "t $t")
-
-                    mSpeed = (s/t)
+                    Log.i(MainActivity.TAGDEGUG, "speed $mSpeed")
                 }
 
                 mPitch = 0f
                 mRoll = 0f
-                mYaw = compass
+                mYaw = compass.toFloat()
 
-                Log.i(MainActivity.TAGDEGUG, "speed $mSpeed")
                 if (mSpeed > 0.0) {
-                    val headingAngle =
-                        Angle(droneLocation.bearingTo(targetLocation).toDouble()).value - Angle(compass.toDouble()).value
+                    var bearingAngle = droneLocation.bearingTo(targetLocation)
 
+                    var headingAngle = Angle(bearingAngle.toDouble()).value - Angle(compass).value
+                    if (headingAngle < 0.0) {
+                        headingAngle += 360
+                    }
                     mPitch = (mSpeed * sin(Math.toRadians(headingAngle))).toFloat()
                     mRoll = (mSpeed * cos(Math.toRadians(headingAngle))).toFloat()
-
+                    Log.i(MainActivity.TAGDEGUG, "compass $compass")
+                    Log.i(MainActivity.TAGDEGUG, "bearingAngle $bearingAngle")
+                    Log.i(MainActivity.TAGDEGUG, "headingAngle $headingAngle")
+                    Log.i(MainActivity.TAGDEGUG, "mPitch $mPitch")
+                    Log.i(MainActivity.TAGDEGUG, "mRoll $mRoll")
                 }
                 prevLocation = droneLocation
                 prevTarget = target
@@ -122,7 +122,7 @@ class DroneManager {
         }
     }
 
-    private fun goToLocation(droneLocation: Location, compass: Float) {
+    private fun goToLocation(droneLocation: Location, compass: Double) {
         val target = targets.peek()
             ?: return
         val lookLocation = location(target.Latitude, target.Longitude, target.Altitude)
@@ -136,7 +136,7 @@ class DroneManager {
         mThrottle = followLocation.altitude.toFloat()
         if (followTargetDistance <= 0.1) {
             val diff: Double =
-                Angle(lookAtTargetBearing.toDouble()).value - Angle(compass.toDouble()).value
+                abs(Angle(lookAtTargetBearing.toDouble()).value - Angle(compass).value)
             if (diff < 1) {
                 followStage = FollowStage.ON
                 prevTarget = target
@@ -147,16 +147,12 @@ class DroneManager {
             mPitch = 0f
             mRoll = 0f
         } else {
-            if (followTargetAltitudeDifference > 0.3 || (Angle(followTargetBearing.toDouble()).value - Angle(compass.toDouble()).value) > 5) {
+            if (followTargetAltitudeDifference > 0.3 || abs(Angle(followTargetBearing.toDouble()).value - Angle(compass).value) > 5) {
                 mYaw = followTargetBearing
-            }
-
-            if (followTargetDistance > 60) {
+            } else if (followTargetDistance > 60) {
                 mYaw = followTargetBearing
                 mRoll = autoFLightSpeed
-            }
-
-            if (followTargetDistance > 0.1 && followTargetDistance <= 60) {
+            }else if (followTargetDistance > 0.1 && followTargetDistance <= 60) {
                 mYaw = followTargetBearing
                 mRoll = min(followTargetDistance / 4, autoFLightSpeed)
             }
@@ -188,9 +184,8 @@ class DroneManager {
 
 class Angle(d: Double) {
     val value = when {
-        d in -180.0..180.0 -> d
-        d > 180.0 -> (d - 180.0) % 360.0 - 180.0
-        else -> (d + 180.0) % 360.0 + 180.0
+        d in 0.0..180.0 -> d
+        else -> 360.0 - (-d)
     }
 
     operator fun minus(other: Angle) = Angle(this.value - other.value)

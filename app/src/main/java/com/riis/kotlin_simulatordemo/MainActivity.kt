@@ -226,7 +226,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 if (mSendVirtualStickDataTimer == null) {
                     mSendVirtualStickDataTask = SendVirtualStickDataTask()
                     mSendVirtualStickDataTimer = Timer()
-                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 40)
+                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 200)
                 }
             }
             R.id.btn_start_follow -> {
