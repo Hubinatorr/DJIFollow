@@ -11,6 +11,7 @@ import dji.sdk.base.BaseComponent
 import dji.sdk.base.BaseProduct
 import dji.sdk.flightcontroller.FlightController
 import dji.sdk.products.Aircraft
+import dji.sdk.remotecontroller.RemoteController
 import dji.sdk.sdkmanager.DJISDKInitEvent
 import dji.sdk.sdkmanager.DJISDKManager
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +36,10 @@ class MainViewModel: ViewModel(), DJISDKManager.SDKManagerCallback {
 
     fun getFlightController(): FlightController? {
         return (product as Aircraft?)?.flightController
+    }
+
+    fun getRemoteController(): RemoteController? {
+        return (product as Aircraft?)?.remoteController
     }
 
     override fun onRegister(error: DJIError?) {

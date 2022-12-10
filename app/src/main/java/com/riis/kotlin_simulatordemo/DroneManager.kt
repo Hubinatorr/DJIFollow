@@ -2,13 +2,12 @@ package com.riis.kotlin_simulatordemo
 
 import android.location.Location
 import android.util.Log
-import android.widget.TextView
 import com.beust.klaxon.Klaxon
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.SphericalUtil
-import dji.common.flightcontroller.LocationCoordinate3D
 import dji.common.flightcontroller.virtualstick.FlightControlData
 import dji.sdk.flightcontroller.FlightController
+import dji.sdk.remotecontroller.RemoteController
 import dji.thirdparty.org.java_websocket.client.WebSocketClient
 import java.util.*
 import kotlin.math.*
@@ -82,9 +81,9 @@ class DroneManager {
                         bearingDiff+=360
                     }
 
-                    if (bearingDiff in 90.0..270.0 ) {
-                        mSpeed = 0.0
-                    }
+//                    if (bearingDiff in 90.0..270.0 || ((target.RightV == 0) && (target.RightH == 0)) ) {
+//                        mSpeed = 0.0
+//                    }
 
                     Log.i(MainActivity.TAGDEGUG, "------------")
                     Log.i(MainActivity.TAGDEGUG, "tt ${target.Timestamp}")
@@ -149,15 +148,12 @@ class DroneManager {
         val lookAtTargetBearing = droneLocation.bearingTo(lookLocation)
 
         mThrottle = followLocation.altitude.toFloat()
-        if (followTargetDistance <= 0.1) {
-            val diff: Double =
-                abs(Angle(lookAtTargetBearing.toDouble()).value - Angle(compass).value)
-            if (diff < 1) {
-                followStage = FollowStage.ON
-                prevTarget = target
-                first = true
-                targets.remove()
-            }
+        if (followTargetDistance <= 0.2) {
+            followStage = FollowStage.ON
+            prevTarget = target
+            first = true
+            targets.remove()
+
             mYaw = lookAtTargetBearing
             mPitch = 0f
             mRoll = 0f
@@ -195,11 +191,54 @@ class DroneManager {
             altitude + mAltitudeOffset
         )
     }
+
+    fun recordPath (
+        controller: FlightController,
+        remoteController: RemoteController,
+        webSocketClient: WebSocketClient,
+        LeftV: Int,
+        LeftH: Int,
+        RightV: Int,
+        RightH: Int
+    ) {
+        val state = controller.state;
+        val location = state.aircraftLocation
+        val attitude = state.attitude
+        val compass = controller.compass.heading
+
+
+        val droneData = RecordData(
+            "DJI-Mavic",
+            location.altitude.toDouble(),
+            location.latitude,
+            location.longitude,
+            attitude.pitch,
+            attitude.roll,
+            attitude.yaw,
+            compass.toDouble(),
+            state.velocityX.toDouble(),
+            state.velocityY.toDouble(),
+            state.velocityZ.toDouble(),
+            System.currentTimeMillis(),
+            LeftH,
+            LeftV,
+            RightH,
+            RightV
+        );
+
+        try {
+            webSocketClient.send(
+                Klaxon().toJsonString(droneData)
+            )
+        } catch (e: Exception) {
+            Log.i(MainActivity.TAGDEGUG, e.toString())
+        }
+    }
 }
 
 class Angle(d: Double) {
-    val value = when {
-        d in 0.0..180.0 -> d
+    val value = when (d) {
+        in 0.0..180.0 -> d
         else -> 360.0 + d
     }
 
@@ -218,5 +257,28 @@ class DroneData(
     val velocityX: Double,
     val velocityY: Double,
     val velocityZ: Double,
-    val Timestamp: Long
+    val Timestamp: Long,
+    val LeftH: Int,
+    val LeftV: Int,
+    val RightH: Int,
+    val RightV: Int
+)
+
+class RecordData(
+    val DroneId: String,
+    val Altitude: Double,
+    val Latitude: Double,
+    val Longitude: Double,
+    val Pitch: Double,
+    val Roll: Double,
+    val Yaw: Double,
+    val Compass: Double,
+    val velocityX: Double,
+    val velocityY: Double,
+    val velocityZ: Double,
+    val Timestamp: Long,
+    val LeftH: Int,
+    val LeftV: Int,
+    val RightH: Int,
+    val RightV: Int
 )

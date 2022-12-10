@@ -47,7 +47,7 @@
             android:layout_height="43dp"
             android:text="Land"
             app:layout_constraintEnd_toStartOf="@+id/btn_disable_virtual_stick"
-            app:layout_constraintStart_toEndOf="@+id/btn_start_follow"
+            app:layout_constraintStart_toEndOf="@+id/btn_start_record"
             app:layout_constraintTop_toBottomOf="@+id/btn_take_off" />
 
         <Button
@@ -73,13 +73,13 @@
             app:layout_constraintEnd_toEndOf="parent" />
 
         <Button
-            android:id="@+id/btn_start_follow"
+            android:id="@+id/btn_start_record"
             style="@style/common_button"
             android:layout_width="126dp"
             android:layout_height="43dp"
             android:layout_marginStart="16dp"
             android:layout_marginBottom="36dp"
-            android:text="Start Follow"
+            android:text="Start Record"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
 

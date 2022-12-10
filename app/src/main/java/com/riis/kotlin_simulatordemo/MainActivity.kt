@@ -38,6 +38,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private var droneManager = DroneManager()
     private var startLocation = Location("")
 
+    private var record = false;
+
     companion object {
         const val UI = "UI"
         const val TAGDEGUG = "Kokot"
@@ -132,7 +134,28 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 mConnectStatusTextView.text = "Disconnected"
             }
         })
+
+
+
+        viewModel.getRemoteController()?.let { remoteController ->
+            remoteController.setHardwareStateCallback { state ->
+                var lstick = state.leftStick
+                var rstick = state.rightStick
+                LeftH = lstick!!.horizontalPosition
+                LeftV = lstick.verticalPosition
+                RightH = rstick!!.horizontalPosition
+                RightV =rstick.verticalPosition
+                if (lstick != null) {
+                    Log.i(UI, "mam st")
+                }
+            }
+        }
     }
+
+    var LeftH: Int = 0
+    var LeftV: Int = 0
+    var RightH: Int = 0
+    var RightV: Int = 0
 
     private fun initUi() {
         mBtnEnableVirtualStick = findViewById(R.id.btn_enable_virtual_stick)
@@ -150,7 +173,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         mBtnStartMission = findViewById(R.id.btn_start_mission)
         mBtnStartMission.setOnClickListener(this)
 
-        mBtnStartFollow = findViewById(R.id.btn_start_follow)
+        mBtnStartFollow = findViewById(R.id.btn_start_record)
         mBtnStartFollow.setOnClickListener(this)
 
         mConnectStatusTextView = findViewById(R.id.ConnectStatusTextView)
@@ -229,8 +252,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                     mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 200)
                 }
             }
-            R.id.btn_start_follow -> {
-                droneManager.followStage = DroneManager.FollowStage.READY
+            R.id.btn_start_record -> {
+                record = true
+                if (mSendVirtualStickDataTimer == null) {
+                    mSendVirtualStickDataTask = SendVirtualStickDataTask()
+                    mSendVirtualStickDataTimer = Timer()
+                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 200)
+                }
             }
         }
     }
@@ -260,7 +288,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     inner class SendVirtualStickDataTask : TimerTask() {
         override fun run() {
             viewModel.getFlightController()?.let { controller ->
-                droneManager.calculateFollowData(controller, webSocketClient)
+                if (record) {
+                    viewModel.getRemoteController()?.let { remoteController ->
+                        droneManager.recordPath(controller, remoteController, webSocketClient, LeftV, LeftH, RightV, RightH)
+                    }
+                } else {
+                    droneManager.calculateFollowData(controller, webSocketClient)
+
+                }
             }
         }
     }
