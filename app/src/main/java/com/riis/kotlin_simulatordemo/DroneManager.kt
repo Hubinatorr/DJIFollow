@@ -54,8 +54,6 @@ class DroneManager {
             }
             FollowStage.ON -> {
                 target = targets.peek() ?: return
-                try { webSocketClient.send("T," + location.latitude + "," + location.longitude + "," + (beginPrimaryTimestamp + (System.currentTimeMillis() - beginSecondaryTimestamp))) }
-                catch (e: Exception) { Log.i(MainActivity.UI, e.toString()) }
 
                 mThrottle = target.Altitude.toFloat()
 
@@ -71,26 +69,42 @@ class DroneManager {
                     first = false
 
                 } else {
-                    var sPrimary = prevTargetLocation.distanceTo(targetLocation)
-                    var sSecondary = droneLocation.distanceTo(targetLocation)
-                    var s = droneLocation.distanceTo(targetLocation)
-                    var t = ((target.Timestamp - beginPrimaryTimestamp) - (System.currentTimeMillis() - beginSecondaryTimestamp)) / 1000.0
+                    var bearingTarget = prevTargetLocation.bearingTo(targetLocation)
+                    var bearingDrone = droneLocation.bearingTo(targetLocation)
+//                    var s = droneLocation.distanceTo(targetLocation)
+//                    var t = ((target.Timestamp - beginPrimaryTimestamp) - (System.currentTimeMillis() - beginSecondaryTimestamp)) / 1000.0
+//
+//                    mSpeed = (s/t)
+                    mSpeed = (sqrt(target.velocityX.pow(2) + target.velocityY.pow(2)) + sqrt(prevTarget.velocityX.pow(2) + prevTarget.velocityY.pow(2))) / 2
 
+                    var bearingDiff = Angle(bearingDrone.toDouble()).value - Angle(bearingTarget.toDouble()).value
+                    if (bearingDiff < 0) {
+                        bearingDiff+=360
+                    }
 
-                    mSpeed = (s/t)
+                    if (bearingDiff in 90.0..270.0 ) {
+                        mSpeed = 0.0
+                    }
+
                     Log.i(MainActivity.TAGDEGUG, "------------")
                     Log.i(MainActivity.TAGDEGUG, "tt ${target.Timestamp}")
                     Log.i(MainActivity.TAGDEGUG, "droneTT ${System.currentTimeMillis()}")
-                    Log.i(MainActivity.TAGDEGUG, "s $s")
-                    Log.i(MainActivity.TAGDEGUG, "t $t")
+                    Log.i(MainActivity.TAGDEGUG, "bearingTarget $bearingTarget")
+                    Log.i(MainActivity.TAGDEGUG, "bearingDrone $bearingDrone")
+//                    Log.i(MainActivity.TAGDEGUG, "bearingDiff $bearingDiff")
+//                    Log.i(MainActivity.TAGDEGUG, "s $s")
+//                    Log.i(MainActivity.TAGDEGUG, "t $t")
                     Log.i(MainActivity.TAGDEGUG, "speed $mSpeed")
                 }
+
+                try { webSocketClient.send("T," + location.latitude + "," + location.longitude + "," + (beginPrimaryTimestamp + (System.currentTimeMillis() - beginSecondaryTimestamp))) }
+                catch (e: Exception) { Log.i(MainActivity.UI, e.toString()) }
 
                 mPitch = 0f
                 mRoll = 0f
                 mYaw = compass.toFloat()
 
-                if (mSpeed > 0.0) {
+                if (mSpeed > 0.1) {
                     var bearingAngle = droneLocation.bearingTo(targetLocation)
 
                     var headingAngle = Angle(bearingAngle.toDouble()).value - Angle(compass).value
@@ -99,6 +113,7 @@ class DroneManager {
                     }
                     mPitch = (mSpeed * sin(Math.toRadians(headingAngle))).toFloat()
                     mRoll = (mSpeed * cos(Math.toRadians(headingAngle))).toFloat()
+
                     Log.i(MainActivity.TAGDEGUG, "compass $compass")
                     Log.i(MainActivity.TAGDEGUG, "bearingAngle $bearingAngle")
                     Log.i(MainActivity.TAGDEGUG, "headingAngle $headingAngle")
@@ -152,7 +167,7 @@ class DroneManager {
             } else if (followTargetDistance > 60) {
                 mYaw = followTargetBearing
                 mRoll = autoFLightSpeed
-            }else if (followTargetDistance > 0.1 && followTargetDistance <= 60) {
+            }else if (followTargetDistance > 0.2 && followTargetDistance <= 60) {
                 mYaw = followTargetBearing
                 mRoll = min(followTargetDistance / 4, autoFLightSpeed)
             }
@@ -185,7 +200,7 @@ class DroneManager {
 class Angle(d: Double) {
     val value = when {
         d in 0.0..180.0 -> d
-        else -> 360.0 - (-d)
+        else -> 360.0 + d
     }
 
     operator fun minus(other: Angle) = Angle(this.value - other.value)
