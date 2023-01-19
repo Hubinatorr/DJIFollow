@@ -3,6 +3,7 @@ package com.riis.kotlin_simulatordemo
 import android.Manifest
 import android.location.Location
 import android.os.Bundle
+import android.renderscript.Float2
 import android.util.Log
 import android.view.View
 import android.widget.Button
@@ -42,7 +43,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
     companion object {
         const val UI = "UI"
-        const val TAGDEGUG = "Kokot"
+        const val TAGDEGUG = "RecordPath"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -253,12 +254,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 }
             }
             R.id.btn_start_record -> {
-                record = true
-                if (mSendVirtualStickDataTimer == null) {
-                    mSendVirtualStickDataTask = SendVirtualStickDataTask()
-                    mSendVirtualStickDataTimer = Timer()
-                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 200)
-                }
+//                val target = droneManager.targets.peek()
+//                val targetUTM = Deg2UTM(target.Latitude, target.Longitude)
+//                record = true
+//                if (mSendVirtualStickDataTimer == null) {
+//                    mSendVirtualStickDataTask = SendVirtualStickDataTask()
+//                    mSendVirtualStickDataTimer = Timer()
+//                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 200)
+//                }
             }
         }
     }
@@ -289,9 +292,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         override fun run() {
             viewModel.getFlightController()?.let { controller ->
                 if (record) {
-                    viewModel.getRemoteController()?.let { remoteController ->
-                        droneManager.recordPath(controller, remoteController, webSocketClient, LeftV, LeftH, RightV, RightH)
-                    }
+                    droneManager.recordPath(controller, webSocketClient, LeftV, LeftH, RightV, RightH)
                 } else {
                     droneManager.calculateFollowData(controller, webSocketClient)
 

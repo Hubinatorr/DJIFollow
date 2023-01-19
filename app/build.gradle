@@ -73,6 +73,7 @@ dependencies {
     implementation 'androidx.lifecycle:lifecycle-extensions:2.2.0'
     implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.2.0'
     implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.2.0'
+    implementation 'dev.romainguy:kotlin-math:1.5.3'
 
     // DJI
     implementation('com.dji:dji-sdk:4.14.1')
