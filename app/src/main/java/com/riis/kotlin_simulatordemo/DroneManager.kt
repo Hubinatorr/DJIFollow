@@ -28,8 +28,8 @@ class DroneManager {
         val drone = getDroneDataFromController(controller)
 
         if (followStage === FollowStage.READY) {
-            target = targets.peek() ?: return
-            targets.remove()
+//            target = targets.peek() ?: return
+//            targets.remove()
 
             if (i == 0) {
                 beginSecondaryTimestamp = System.currentTimeMillis()
@@ -40,7 +40,9 @@ class DroneManager {
 
             try {
                 drone.Timestamp = (beginPrimaryTimestamp + (System.currentTimeMillis() - beginSecondaryTimestamp))
-                webSocketClient.send(Klaxon().toJsonString(drone))
+//                webSocketClient.send(Klaxon().toJsonString(drone))
+                webSocketClient.send("T," + drone.Latitude + "," + drone.Longitude + "," + (beginPrimaryTimestamp + (System.currentTimeMillis() - beginSecondaryTimestamp)))
+
             } catch (e: Exception) { Log.i(MainActivity.DEBUG, e.toString()) }
         }
 
@@ -49,12 +51,12 @@ class DroneManager {
         mRoll = pidController.Vx.coerceIn(-10.0, 10.0).toFloat()
         mPitch = pidController.Vy.coerceIn(-10.0, 10.0).toFloat()
 
-        if (followStage === FollowStage.GOTO) {
-            if (mPitch < 0.1 && mRoll < 0.1) {
-                followStage = FollowStage.READY
-                targets.remove()
-            }
-        }
+//        if (followStage === FollowStage.GOTO) {
+//            if (mPitch < 0.1 && mRoll < 0.1) {
+//                followStage = FollowStage.READY
+//                targets.remove()
+//            }
+//        }
 
         controller.sendVirtualStickFlightControlData(
             FlightControlData(mPitch, mRoll, mYaw, mThrottle)

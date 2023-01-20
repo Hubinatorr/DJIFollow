@@ -92,7 +92,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             override fun onMessage(s: String) {
                 val droneData = Klaxon().parse<DroneData>(s)
                 if (droneData != null) {
-                    droneManager.targets.add(droneData)
+                    droneManager.target = droneData
+                    droneManager.followStage = FollowStage.READY
                 } else {
                     Log.i(DEBUG, "Parse incorrect")
                 }
@@ -241,11 +242,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 }
             }
             R.id.btn_start_mission -> {
-                droneManager.target = droneManager.targets.peek() ?: return
+                droneManager.target = Klaxon().parse("{\"Altitude\" : 1.100000023841858, \"Compass\" : 0.0, \"DroneId\" : \"DJI-Mavic\", \"Latitude\" : 49.226579703075075, \"LeftH\" : 0, \"LeftV\" : 0, \"Longitude\" : 16.59658932489439, \"Pitch\" : 1.0, \"RightH\" : 0, \"RightV\" : 0, \"Roll\" : 0.0, \"Timestamp\" : 1671373700213, \"Yaw\" : 0.0, \"velocityX\" : 0.0, \"velocityY\" : 0.0, \"velocityZ\" : 0.0}")!!
                 if (mSendVirtualStickDataTimer == null) {
                     mSendVirtualStickDataTask = SendVirtualStickDataTask()
                     mSendVirtualStickDataTimer = Timer()
-                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 200)
+                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 40)
                 }
             }
             R.id.btn_start_record -> {

@@ -48,6 +48,12 @@ class PID {
         eY = target.y + mLongitudeOffset - drone.y
         eZ = target.z + mAltitudeOffset - drone.Altitude
 
+        if (prevTimestamp != 0L) {
+            Ix = Ki * (Ix + eX * deltaT)
+            Iy = Ki * (Iy + eY * deltaT)
+            Iz = Ki * (Iz + eZ * deltaT)
+        }
+
         veX = target.velocityX - drone.velocityX
         veY = target.velocityY - drone.velocityY
         veZ = target.velocityZ - drone.velocityZ
@@ -59,12 +65,6 @@ class PID {
         val Dx = Kd * veX
         val Dy = Kd * veY
         val Dz = Kd * veZ
-
-        if (prevTimestamp != 0L) {
-            Ix = (Ix + eX* deltaT) * Ki
-            Iy = (Iy + eY* deltaT) * Ki
-            Iz = (Iz + eZ* deltaT) * Ki
-        }
 
         Vx = Px + Ix + Dx
         Vy = Py + Iy + Dy
