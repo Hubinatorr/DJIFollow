@@ -11,7 +11,7 @@ class DroneData(
     val velocityX: Double,
     val velocityY: Double,
     val velocityZ: Double,
-    val Timestamp: Long,
+    var Timestamp: Long,
     val LeftH: Int,
     val LeftV: Int,
     val RightH: Int,

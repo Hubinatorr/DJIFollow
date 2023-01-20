@@ -27,10 +27,6 @@ class DroneManager {
 
     var followStage = FollowStage.GOTO
 
-    private var mLatitudeOffset = 0.0
-    private var mLongitudeOffset = 3.0
-    private var mAltitudeOffset = 0.0
-
     lateinit var target: DroneData
     private lateinit var prevDrone: DroneData
     private lateinit var prevTarget: DroneData
@@ -51,17 +47,10 @@ class DroneManager {
         mPitch = 0f
         mRoll = 0f
         mThrottle = target.Altitude.toFloat()
-
-        val state = controller.state
-        val location = state.aircraftLocation
-        val attitude = state.attitude
-
-        if (followStage === FollowStage.READY) {
-            target = targets.peek() ?: return
-        }
+//        mYaw = location(location.latitude, location.longitude, location.altitude.toDouble()).bearingTo(location(target.Latitude, target.Longitude, target.Altitude))
 
         val drone = DroneData(
-            "DJI-Mavic",
+            "Follower",
             controller.state.aircraftLocation.altitude.toDouble(),
             controller.state.aircraftLocation.latitude,
             controller.state.aircraftLocation.longitude,
@@ -78,68 +67,37 @@ class DroneManager {
             0
         );
 
-        pid.compute(drone, target)
-
-
-//        var prevTargetUMT = Deg2UTM(prevTarget.Latitude, prevTarget.Longitude)
-//        var prevTargetPosVector = Vector(prevTargetUMT.Northing, prevTargetUMT.Easting)
-
-        var targetLocation = getOffsetLocation(target.Latitude, target.Longitude, target.Altitude)
-        var targetUMT = Deg2UTM(targetLocation.latitude, targetLocation.longitude)
-        var targetPosVector = Vector(targetUMT.Northing, targetUMT.Easting)
-        var targetSpeedVector = Vector(target.velocityX, target.velocityY)
-
-        var targetHeading = Angle(target.Yaw).value
-        var targetCommandSpeedX = ((target.RightV/660.0)*10)
-        var targetCommandSpeedY = ((target.RightH/660.0)*10)
-
-        var xX = targetCommandSpeedX * cos(Math.toRadians(targetHeading))
-        var yX = targetCommandSpeedX * sin(Math.toRadians(targetHeading))
-
-        var xY = targetCommandSpeedY * cos(Math.toRadians(targetHeading + 90))
-        var yY = targetCommandSpeedY * sin(Math.toRadians(targetHeading + 90))
-
-        var targetCommand = Vector(xX, yX).add(Vector(xY,yY))
-
-        var droneUMT = Deg2UTM(location.latitude, location.longitude)
-        var dronePosVector = Vector(droneUMT.Northing, droneUMT.Easting)
-        var droneSpeedVector = Vector(state.velocityX.toDouble(), state.velocityY.toDouble())
-
-
-//        mYaw = location(location.latitude, location.longitude, location.altitude.toDouble()).bearingTo(location(target.Latitude, target.Longitude, target.Altitude))
-
-
-        var positionOffset = targetPosVector.subtract(dronePosVector).multiply(1.5)
-
-        integralOffset = integralOffset.add(positionOffset.multiply(0.2)).multiply(0.5)
-
-        var velocityOffset = targetSpeedVector.subtract(droneSpeedVector).multiply(1.5)
-
-        var result = velocityOffset.add(positionOffset).add(integralOffset)
-
-        mRoll = min(10.0,  result.getEntries()[0]).toFloat()
-        mPitch = min(10.0, result.getEntries()[1]).toFloat()
-
         if (followStage === FollowStage.READY) {
+            target = targets.peek() ?: return
+
             if (first) {
                 beginSecondaryTimestamp = System.currentTimeMillis()
                 beginPrimaryTimestamp = target.Timestamp
                 first = false
             }
+
             try {
-                webSocketClient.send("T," + location.latitude + "," + location.longitude + "," + (beginPrimaryTimestamp + (System.currentTimeMillis() - beginSecondaryTimestamp)))
+                drone.Timestamp = (beginPrimaryTimestamp + (System.currentTimeMillis() - beginSecondaryTimestamp))
+                webSocketClient.send(Klaxon().toJsonString(drone))
             } catch (e: Exception) {
                 Log.i(MainActivity.UI, e.toString())
             }
+
             targets.remove()
         }
 
+        pid.compute(drone, target)
+
+        mRoll = pid.Vx.coerceIn(-10.0, 10.0).toFloat()
+        mPitch = pid.Vy.coerceIn(-10.0, 10.0).toFloat()
+
         if (followStage === FollowStage.GOTO) {
-           if (mPitch < 0.1 && mRoll < 0.1) {
-               followStage = FollowStage.READY
-               targets.remove()
-           }
+            if (mPitch < 0.1 && mRoll < 0.1) {
+                followStage = FollowStage.READY
+                targets.remove()
+            }
         }
+
 
         controller.sendVirtualStickFlightControlData(
             FlightControlData(mPitch, mRoll, mYaw, mThrottle)
@@ -151,28 +109,6 @@ class DroneManager {
         }
 
         i++
-    }
-
-    private fun location(latitude: Double, longitude: Double, altitude: Double): Location {
-        val location = Location("")
-        location.latitude = latitude
-        location.longitude = longitude
-        location.altitude = altitude
-
-        return location
-    }
-
-    fun getOffsetLocation(latitude: Double, longitude: Double, altitude: Double): Location {
-        val offsetLocation = SphericalUtil.computeOffset(
-            SphericalUtil.computeOffset(LatLng(latitude, longitude), mLatitudeOffset, 0.0),
-            mLongitudeOffset, 90.0
-        )
-
-        return location(
-            offsetLocation.latitude,
-            offsetLocation.longitude,
-            altitude + mAltitudeOffset
-        )
     }
 
     fun recordPath (

@@ -1,5 +1,8 @@
 package com.riis.kotlin_simulatordemo
 
+import kotlin.math.cos
+import kotlin.math.sin
+
 class PID {
     private var Kp = 1.5
     private var Kd = 1.5
@@ -21,14 +24,18 @@ class PID {
     var Vy = 0.0
     var Vz = 0.0
 
+    private var mLatitudeOffset = 0.0
+    private var mLongitudeOffset = 3.0
+    private var mAltitudeOffset = 0.0
+
     private var prevTimestamp: Long = 0
 
     fun compute(drone: DroneData, target: DroneData) {
-        val deltaT = System.currentTimeMillis() - prevTimestamp
+        val deltaT = 0.2
 
-        eX = target.x - drone.x
-        eY = target.y - drone.y
-        eZ = target.z - drone.Altitude
+        eX = target.x + mLatitudeOffset - drone.x
+        eY = target.y + mLongitudeOffset - drone.y
+        eZ = target.z + mAltitudeOffset - drone.Altitude
 
         veX = target.velocityX - drone.velocityX
         veY = target.velocityY - drone.velocityY
@@ -53,5 +60,20 @@ class PID {
         Vz = Pz + Iz + Dz
 
         prevTimestamp = System.currentTimeMillis()
+    }
+
+    fun computeWithCommand(drone: DroneData, target: DroneData) {
+        var targetHeading = Angle(target.Yaw).value
+        var targetCommandSpeedX = ((target.RightV/660.0)*10)
+        var targetCommandSpeedY = ((target.RightH/660.0)*10)
+
+        var xX = targetCommandSpeedX * cos(Math.toRadians(targetHeading))
+        var yX = targetCommandSpeedX * sin(Math.toRadians(targetHeading))
+
+        var xY = targetCommandSpeedY * cos(Math.toRadians(targetHeading + 90))
+        var yY = targetCommandSpeedY * sin(Math.toRadians(targetHeading + 90))
+
+        var targetCommandX = xX + xY
+        var targetCommandY = yX + yY
     }
 }
