@@ -3,10 +3,10 @@ package com.riis.kotlin_simulatordemo
 import android.Manifest
 import android.location.Location
 import android.os.Bundle
+import android.renderscript.Float2
 import android.util.Log
 import android.view.View
 import android.widget.Button
-import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.viewModels
@@ -28,10 +28,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private lateinit var mBtnTakeOff: Button
     private lateinit var mBtnLand: Button
     private lateinit var mBtnStartMission: Button
-    private lateinit var mBtnStartRecord: Button
-    private lateinit var mBtnLoad: Button
+    private lateinit var mBtnStartFollow: Button
     private lateinit var mFollowStatusTextView: TextView
-    private lateinit var mFrequencyInput: EditText
 
     lateinit var webSocketClient: WebSocketClient
     private var mSendVirtualStickDataTimer: Timer? = null
@@ -40,8 +38,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
     private var droneManager = DroneManager()
     private var startLocation = Location("")
-
-
 
     private var record = false;
 
@@ -74,6 +70,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             ), 1
         )
         viewModel.startSdkRegistration(this)
+        val flightData = resources.openRawResource(R.raw.data)
+        val droneData = Klaxon().parseArray<DroneData>(flightData)
+        if (droneData != null) {
+            for (target in droneData) {
+                droneManager.targets.add(target)
+            }
+        }
         initObservers()
         initUi()
         createWebSocketClient()
@@ -92,13 +95,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             }
 
             override fun onMessage(s: String) {
-                val droneData = Klaxon().parse<DroneData>(s)
-                if (droneData != null) {
-                    droneManager.target = droneData
-                    droneManager.followStage = DroneManager.FollowStage.READY
-                } else {
-                    Log.i(UI, "Parse incorrect")
-                }
+//                val droneData = Klaxon().parse<DroneData>(s)
+//                if (droneData != null) {
+//                    droneManager.targets.add(droneData)
+//                } else {
+//                    Log.i(UI, "Parse incorrect")
+//                }
             }
 
             override fun onClose(i: Int, s: String, b: Boolean) {
@@ -172,14 +174,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         mBtnStartMission = findViewById(R.id.btn_start_mission)
         mBtnStartMission.setOnClickListener(this)
 
-        mBtnStartRecord = findViewById(R.id.btn_start_record)
-        mBtnStartRecord.setOnClickListener(this)
-
-        mBtnLoad = findViewById(R.id.btn_load)
-        mBtnLoad.setOnClickListener(this)
-
-        mFrequencyInput = findViewById(R.id.frequency)
-
+        mBtnStartFollow = findViewById(R.id.btn_start_record)
+        mBtnStartFollow.setOnClickListener(this)
 
         mConnectStatusTextView = findViewById(R.id.ConnectStatusTextView)
         mFollowStatusTextView = findViewById(R.id.followStatusTextVIew)
@@ -191,7 +187,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             it.rollPitchControlMode = RollPitchControlMode.VELOCITY
             it.yawControlMode = YawControlMode.ANGLE
             it.verticalControlMode = VerticalControlMode.POSITION
-            it.rollPitchCoordinateSystem = FlightCoordinateSystem.GROUND
+            it.rollPitchCoordinateSystem = FlightCoordinateSystem.BODY
         }
     }
 
@@ -251,8 +247,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 }
             }
             R.id.btn_start_mission -> {
-                droneManager.target = Klaxon().parse("{\"Altitude\" : 1.100000023841858, \"Compass\" : 0.0, \"DroneId\" : \"DJI-Mavic\", \"Latitude\" : 49.226579703075075, \"LeftH\" : 0, \"LeftV\" : 0, \"Longitude\" : 16.59658932489439, \"Pitch\" : 1.0, \"RightH\" : 0, \"RightV\" : 0, \"Roll\" : 0.0, \"Timestamp\" : 1671373700213, \"Yaw\" : 0.0, \"velocityX\" : 0.0, \"velocityY\" : 0.0, \"velocityZ\" : 0.0}")!!
-
+                droneManager.target = droneManager.targets.peek() ?: return
                 if (mSendVirtualStickDataTimer == null) {
                     mSendVirtualStickDataTask = SendVirtualStickDataTask()
                     mSendVirtualStickDataTimer = Timer()
@@ -260,21 +255,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 }
             }
             R.id.btn_start_record -> {
-                record = true
-                if (mSendVirtualStickDataTimer == null) {
-                    mSendVirtualStickDataTask = SendVirtualStickDataTask()
-                    mSendVirtualStickDataTimer = Timer()
-                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 40)
-                }
-            }
-            R.id.btn_load -> {
-                val flightData = resources.openRawResource(R.raw.data)
-                val droneData = Klaxon().parseArray<DroneData>(flightData)
-                if (droneData != null) {
-                    for (target in droneData) {
-                        droneManager.targets.add(target)
-                    }
-                }
+//                val target = droneManager.targets.peek()
+//                val targetUTM = Deg2UTM(target.Latitude, target.Longitude)
+//                record = true
+//                if (mSendVirtualStickDataTimer == null) {
+//                    mSendVirtualStickDataTask = SendVirtualStickDataTask()
+//                    mSendVirtualStickDataTimer = Timer()
+//                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 200)
+//                }
             }
         }
     }
@@ -308,7 +296,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                     droneManager.recordPath(controller, webSocketClient, LeftV, LeftH, RightV, RightH)
                 } else {
                     droneManager.calculateFollowData(controller, webSocketClient)
-
                 }
             }
         }

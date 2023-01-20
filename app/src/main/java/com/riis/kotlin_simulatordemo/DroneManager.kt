@@ -38,22 +38,48 @@ class DroneManager {
     private var beginPrimaryTimestamp: Long = 0
     private var beginSecondaryTimestamp: Long = 0
 
-    var first = true
+    private var first = true
     private var i = 0
 
     private var integralOffset = Vector(0.0, 0.0)
     private var prevError = Vector(0.0, 0.0)
 
+    private var pid = PID()
 
     fun calculateFollowData(controller: FlightController, webSocketClient: WebSocketClient ) {
         mRoll = 0f
         mPitch = 0f
         mRoll = 0f
-        mThrottle = 0f
+        mThrottle = target.Altitude.toFloat()
 
         val state = controller.state
         val location = state.aircraftLocation
         val attitude = state.attitude
+
+        if (followStage === FollowStage.READY) {
+            target = targets.peek() ?: return
+        }
+
+        val drone = DroneData(
+            "DJI-Mavic",
+            controller.state.aircraftLocation.altitude.toDouble(),
+            controller.state.aircraftLocation.latitude,
+            controller.state.aircraftLocation.longitude,
+            controller.state.attitude.pitch,
+            controller.state.attitude.roll,
+            controller.state.attitude.yaw,
+            controller.state.velocityX.toDouble(),
+            controller.state.velocityY.toDouble(),
+            controller.state.velocityZ.toDouble(),
+            System.currentTimeMillis(),
+            0,
+            0,
+            0,
+            0
+        );
+
+        pid.compute(drone, target)
+
 
 //        var prevTargetUMT = Deg2UTM(prevTarget.Latitude, prevTarget.Longitude)
 //        var prevTargetPosVector = Vector(prevTargetUMT.Northing, prevTargetUMT.Easting)
@@ -63,17 +89,29 @@ class DroneManager {
         var targetPosVector = Vector(targetUMT.Northing, targetUMT.Easting)
         var targetSpeedVector = Vector(target.velocityX, target.velocityY)
 
+        var targetHeading = Angle(target.Yaw).value
+        var targetCommandSpeedX = ((target.RightV/660.0)*10)
+        var targetCommandSpeedY = ((target.RightH/660.0)*10)
+
+        var xX = targetCommandSpeedX * cos(Math.toRadians(targetHeading))
+        var yX = targetCommandSpeedX * sin(Math.toRadians(targetHeading))
+
+        var xY = targetCommandSpeedY * cos(Math.toRadians(targetHeading + 90))
+        var yY = targetCommandSpeedY * sin(Math.toRadians(targetHeading + 90))
+
+        var targetCommand = Vector(xX, yX).add(Vector(xY,yY))
+
         var droneUMT = Deg2UTM(location.latitude, location.longitude)
         var dronePosVector = Vector(droneUMT.Northing, droneUMT.Easting)
         var droneSpeedVector = Vector(state.velocityX.toDouble(), state.velocityY.toDouble())
 
-        mThrottle = target.Altitude.toFloat()
+
 //        mYaw = location(location.latitude, location.longitude, location.altitude.toDouble()).bearingTo(location(target.Latitude, target.Longitude, target.Altitude))
 
 
-        var positionOffset = targetPosVector.subtract(dronePosVector).multiply(2.0)
+        var positionOffset = targetPosVector.subtract(dronePosVector).multiply(1.5)
 
-        integralOffset = integralOffset.add(positionOffset.multiply(0.2)).multiply(0.001)
+        integralOffset = integralOffset.add(positionOffset.multiply(0.2)).multiply(0.5)
 
         var velocityOffset = targetSpeedVector.subtract(droneSpeedVector).multiply(1.5)
 
@@ -93,12 +131,21 @@ class DroneManager {
             } catch (e: Exception) {
                 Log.i(MainActivity.UI, e.toString())
             }
+            targets.remove()
+        }
+
+        if (followStage === FollowStage.GOTO) {
+           if (mPitch < 0.1 && mRoll < 0.1) {
+               followStage = FollowStage.READY
+               targets.remove()
+           }
         }
 
         controller.sendVirtualStickFlightControlData(
             FlightControlData(mPitch, mRoll, mYaw, mThrottle)
         ) { djiError ->
             if (djiError != null) {
+                Log.i(MainActivity.UI, "$mPitch $mRoll $mYaw $mThrottle")
                 Log.i(MainActivity.UI, djiError.description)
             }
         }
@@ -136,23 +183,17 @@ class DroneManager {
         RightV: Int,
         RightH: Int
     ) {
-        val state = controller.state;
-        val location = state.aircraftLocation
-        val attitude = state.attitude
-        val compass = controller.compass.heading
-
-
-        val droneData = RecordData(
+        val droneData = DroneData(
             "DJI-Mavic",
-            location.altitude.toDouble(),
-            location.latitude,
-            location.longitude,
-            attitude.pitch,
-            attitude.roll,
-            attitude.yaw,
-            state.velocityX.toDouble(),
-            state.velocityY.toDouble(),
-            state.velocityZ.toDouble(),
+            controller.state.aircraftLocation.altitude.toDouble(),
+            controller.state.aircraftLocation.latitude,
+            controller.state.aircraftLocation.longitude,
+            controller.state.attitude.pitch,
+            controller.state.attitude.roll,
+            controller.state.attitude.yaw,
+            controller.state.velocityX.toDouble(),
+            controller.state.velocityY.toDouble(),
+            controller.state.velocityZ.toDouble(),
             System.currentTimeMillis(),
             LeftH,
             LeftV,
@@ -171,47 +212,3 @@ class DroneManager {
     }
 }
 
-class Angle(d: Double) {
-    val value = when (d) {
-        in 0.0..180.0 -> d
-        else -> 360.0 + d
-    }
-
-    operator fun minus(other: Angle) = Angle(this.value - other.value)
-}
-
-class DroneData(
-    val DroneId: String,
-    val Altitude: Double,
-    val Latitude: Double,
-    val Longitude: Double,
-    val Pitch: Double,
-    val Roll: Double,
-    val Yaw: Double,
-    val velocityX: Double,
-    val velocityY: Double,
-    val velocityZ: Double,
-    val Timestamp: Long,
-    val LeftH: Int,
-    val LeftV: Int,
-    val RightH: Int,
-    val RightV: Int
-)
-
-class RecordData(
-    val DroneId: String,
-    val Altitude: Double,
-    val Latitude: Double,
-    val Longitude: Double,
-    val Pitch: Double,
-    val Roll: Double,
-    val Yaw: Double,
-    val velocityX: Double,
-    val velocityY: Double,
-    val velocityZ: Double,
-    val Timestamp: Long,
-    val LeftH: Int,
-    val LeftV: Int,
-    val RightH: Int,
-    val RightV: Int
-)
