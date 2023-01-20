@@ -117,17 +117,6 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <TextView
-            android:id="@+id/followStatusTextVIew"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="FollowStatus"
-            app:layout_constraintBottom_toTopOf="@+id/btn_take_off"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintVertical_bias="0.766" />
-
         <EditText
             android:id="@+id/frequency"
             android:layout_width="129dp"

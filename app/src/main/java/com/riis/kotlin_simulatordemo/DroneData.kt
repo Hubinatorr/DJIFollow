@@ -12,10 +12,10 @@ class DroneData(
     val velocityY: Double,
     val velocityZ: Double,
     var Timestamp: Long,
-    val LeftH: Int,
-    val LeftV: Int,
-    val RightH: Int,
-    val RightV: Int
+    var LeftH: Int,
+    var LeftV: Int,
+    var RightH: Int,
+    var RightV: Int
 ) {
     val utm = Deg2UTM(Latitude, Longitude)
     val x = utm.Northing

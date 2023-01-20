@@ -1,9 +1,7 @@
 package com.riis.kotlin_simulatordemo
 
 import android.Manifest
-import android.location.Location
 import android.os.Bundle
-import android.renderscript.Float2
 import android.util.Log
 import android.view.View
 import android.widget.Button
@@ -27,23 +25,27 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private lateinit var mBtnDisableVirtualStick: Button
     private lateinit var mBtnTakeOff: Button
     private lateinit var mBtnLand: Button
+    private lateinit var mBtnLoad: Button
     private lateinit var mBtnStartMission: Button
     private lateinit var mBtnStartFollow: Button
-    private lateinit var mFollowStatusTextView: TextView
 
     lateinit var webSocketClient: WebSocketClient
     private var mSendVirtualStickDataTimer: Timer? = null
     private var mSendVirtualStickDataTask: SendVirtualStickDataTask? = null
+    private var mSendDroneDataTimer: Timer? = null
+    private var mSendDroneDataTask: SendDroneDataTask? = null
     private val viewModel by viewModels<MainViewModel>()
 
     private var droneManager = DroneManager()
-    private var startLocation = Location("")
 
-    private var record = false;
+    var LeftH: Int = 0
+    var LeftV: Int = 0
+    var RightH: Int = 0
+    var RightV: Int = 0
 
     companion object {
-        const val UI = "UIDebug"
-        const val TAGDEGUG = "RecordPath"
+        const val DEBUG = "PrintDebug"
+        const val RECORD = "PrintRecord"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -70,13 +72,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             ), 1
         )
         viewModel.startSdkRegistration(this)
-        val flightData = resources.openRawResource(R.raw.data)
-        val droneData = Klaxon().parseArray<DroneData>(flightData)
-        if (droneData != null) {
-            for (target in droneData) {
-                droneManager.targets.add(target)
-            }
-        }
         initObservers()
         initUi()
         createWebSocketClient()
@@ -91,24 +86,24 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         }
         webSocketClient = object : WebSocketClient(uri) {
             override fun onOpen(serverHandshake: ServerHandshake) {
-                Log.i(UI, "Connected to the DroCo server.")
+                Log.i(DEBUG, "Connected to the DroCo server.")
             }
 
             override fun onMessage(s: String) {
-//                val droneData = Klaxon().parse<DroneData>(s)
-//                if (droneData != null) {
-//                    droneManager.targets.add(droneData)
-//                } else {
-//                    Log.i(UI, "Parse incorrect")
-//                }
+                val droneData = Klaxon().parse<DroneData>(s)
+                if (droneData != null) {
+                    droneManager.targets.add(droneData)
+                } else {
+                    Log.i(DEBUG, "Parse incorrect")
+                }
             }
 
             override fun onClose(i: Int, s: String, b: Boolean) {
-                Log.i(UI, "Connection to the DroCo server closed.")
+                Log.i(DEBUG, "Connection to the DroCo server closed.")
             }
 
             override fun onError(e: Exception) {
-                Log.i(UI, "Error connection")
+                Log.i(DEBUG, "Error connection")
             }
         }
 
@@ -124,39 +119,29 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                     mConnectStatusTextView.text = it.model.toString() + " Connected"
                     ret = true
                 } else {
-                    if ((it as Aircraft?)?.remoteController != null && it.remoteController.isConnected
-                    ) {
+                    if ((it as Aircraft?)?.remoteController != null && it.remoteController.isConnected) {
                         mConnectStatusTextView.text = "only RC Connected"
                         ret = true
                     }
                 }
             }
+
             if (!ret) {
                 mConnectStatusTextView.text = "Disconnected"
             }
         })
 
-
-
         viewModel.getRemoteController()?.let { remoteController ->
             remoteController.setHardwareStateCallback { state ->
-                var lstick = state.leftStick
-                var rstick = state.rightStick
-                LeftH = lstick!!.horizontalPosition
+                var lstick = state.leftStick!!
+                var rstick = state.rightStick!!
+                LeftH = lstick.horizontalPosition
                 LeftV = lstick.verticalPosition
-                RightH = rstick!!.horizontalPosition
+                RightH = rstick.horizontalPosition
                 RightV =rstick.verticalPosition
-                if (lstick != null) {
-                    Log.i(UI, "mam st")
-                }
             }
         }
     }
-
-    var LeftH: Int = 0
-    var LeftV: Int = 0
-    var RightH: Int = 0
-    var RightV: Int = 0
 
     private fun initUi() {
         mBtnEnableVirtualStick = findViewById(R.id.btn_enable_virtual_stick)
@@ -177,9 +162,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         mBtnStartFollow = findViewById(R.id.btn_start_record)
         mBtnStartFollow.setOnClickListener(this)
 
+        mBtnLoad = findViewById(R.id.btn_load)
+        mBtnLoad.setOnClickListener(this)
+
         mConnectStatusTextView = findViewById(R.id.ConnectStatusTextView)
-        mFollowStatusTextView = findViewById(R.id.followStatusTextVIew)
-        mFollowStatusTextView.text = "Follow Not Ready"
     }
 
     private fun initFlightController() {
@@ -197,10 +183,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 viewModel.getFlightController()?.let { controller ->
                     controller.setVirtualStickModeEnabled(true) { djiError ->
                         if (djiError != null) {
-                            Log.i(UI, djiError.description)
+                            Log.i(DEBUG, djiError.description)
                             showToast("Virtual Stick: Could not enable virtual stick")
                         } else {
-                            Log.i(UI, "Enable Virtual Stick Success")
+                            Log.i(DEBUG, "Enable Virtual Stick Success")
                             showToast("Virtual Sticks Enabled")
                         }
                     }
@@ -211,10 +197,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 viewModel.getFlightController()?.let { controller ->
                     controller.setVirtualStickModeEnabled(false) { djiError ->
                         if (djiError != null) {
-                            Log.i(UI, djiError.description)
+                            Log.i(DEBUG, djiError.description)
                             showToast("Virtual Stick: Could not disable virtual stick")
                         } else {
-                            Log.i(UI, "Disable Virtual Stick Success")
+                            Log.i(DEBUG, "Disable Virtual Stick Success")
                             showToast("Virtual Sticks Disabled")
                         }
                     }
@@ -224,10 +210,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 viewModel.getFlightController()?.let { controller ->
                     controller.startTakeoff { djiError ->
                         if (djiError != null) {
-                            Log.i(UI, djiError.description)
+                            Log.i(DEBUG, djiError.description)
                             showToast("Takeoff Error: ${djiError.description}")
                         } else {
-                            Log.i(UI, "Takeoff Success")
+                            Log.i(DEBUG, "Takeoff Success")
                             showToast("Takeoff Success")
                         }
                     }
@@ -237,12 +223,20 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 viewModel.getFlightController()?.let { controller ->
                     controller.startLanding { djiError ->
                         if (djiError != null) {
-                            Log.i(UI, djiError.description)
+                            Log.i(DEBUG, djiError.description)
                             showToast("Landing Error: ${djiError.description}")
                         } else {
-                            Log.i(UI, "Start Landing Success")
+                            Log.i(DEBUG, "Start Landing Success")
                             showToast("Start Landing Success")
                         }
+                    }
+                }
+            }
+            R.id.btn_load -> {
+                val droneData = Klaxon().parseArray<DroneData>(resources.openRawResource(R.raw.data))
+                if (droneData != null) {
+                    for (target in droneData) {
+                        droneManager.targets.add(target)
                     }
                 }
             }
@@ -255,24 +249,38 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 }
             }
             R.id.btn_start_record -> {
-//                val target = droneManager.targets.peek()
-//                val targetUTM = Deg2UTM(target.Latitude, target.Longitude)
-//                record = true
-//                if (mSendVirtualStickDataTimer == null) {
-//                    mSendVirtualStickDataTask = SendVirtualStickDataTask()
-//                    mSendVirtualStickDataTimer = Timer()
-//                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 200)
-//                }
+                if (mSendDroneDataTimer == null) {
+                    mSendDroneDataTask = SendDroneDataTask()
+                    mSendDroneDataTimer = Timer()
+                    mSendDroneDataTimer?.schedule(mSendDroneDataTask, 0, 40)
+                }
             }
         }
     }
 
-    private fun showToast(msg: String) {
-        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+    inner class SendVirtualStickDataTask : TimerTask() {
+        override fun run() {
+            viewModel.getFlightController()?.let { controller ->
+                droneManager.calculateFollowData(controller, webSocketClient)
+            }
+        }
+    }
+
+    inner class SendDroneDataTask : TimerTask() {
+        override fun run() {
+            viewModel.getFlightController()?.let { controller ->
+                val drone = droneManager.getDroneDataFromController(controller, LeftV, LeftH, RightV, RightH)
+                Log.i(RECORD, Klaxon().toJsonString(drone))
+            }
+        }
     }
 
     fun onReturn(view: View) {
         this.finish()
+    }
+
+    private fun showToast(msg: String) {
+        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
     }
 
     override fun onDestroy() {
@@ -286,18 +294,17 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             it.purge()
             mSendVirtualStickDataTimer = null
         }
-        super.onDestroy()
-    }
 
-    inner class SendVirtualStickDataTask : TimerTask() {
-        override fun run() {
-            viewModel.getFlightController()?.let { controller ->
-                if (record) {
-                    droneManager.recordPath(controller, webSocketClient, LeftV, LeftH, RightV, RightH)
-                } else {
-                    droneManager.calculateFollowData(controller, webSocketClient)
-                }
-            }
+        mSendDroneDataTask?.let {
+            it.cancel()
+            mSendDroneDataTask = null
         }
+
+        mSendDroneDataTimer?.let {
+            it.cancel()
+            it.purge()
+            mSendDroneDataTimer = null
+        }
+        super.onDestroy()
     }
 }

@@ -9,16 +9,26 @@ class PID {
     private var Ki = 0.5
 
     private var eX = 0.0
+        get() = field
     private var eY = 0.0
+        get() = field
     private var eZ = 0.0
+        get() = field
 
     private var veX = 0.0
+        get() = field
     private var veY = 0.0
+        get() = field
     private var veZ = 0.0
+        get() = field
 
     private var Ix = 0.0
     private var Iy = 0.0
     private var Iz = 0.0
+
+    private var eXprev = 0.0
+    private var eYprev = 0.0
+    private var eZprev = 0.0
 
     var Vx = 0.0
     var Vy = 0.0
@@ -31,7 +41,8 @@ class PID {
     private var prevTimestamp: Long = 0
 
     fun compute(drone: DroneData, target: DroneData) {
-        val deltaT = 0.2
+        val currentTimestamp = System.currentTimeMillis()
+        val deltaT = (currentTimestamp - prevTimestamp) / 1000
 
         eX = target.x + mLatitudeOffset - drone.x
         eY = target.y + mLongitudeOffset - drone.y
@@ -50,16 +61,20 @@ class PID {
         val Dz = Kd * veZ
 
         if (prevTimestamp != 0L) {
-            Ix += eX * deltaT * Ki
-            Iy += eY * deltaT * Ki
-            Iz += eZ * deltaT * Ki
+            Ix = (Ix + eX* deltaT) * Ki
+            Iy = (Iy + eY* deltaT) * Ki
+            Iz = (Iz + eZ* deltaT) * Ki
         }
 
         Vx = Px + Ix + Dx
         Vy = Py + Iy + Dy
         Vz = Pz + Iz + Dz
 
-        prevTimestamp = System.currentTimeMillis()
+        eXprev = eX
+        eYprev = eY
+        eZprev = eZ
+
+        prevTimestamp = currentTimestamp
     }
 
     fun computeWithCommand(drone: DroneData, target: DroneData) {
