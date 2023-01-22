@@ -26,7 +26,7 @@ class DroneManager {
         val mYaw = 0f
         val mThrottle = target.Altitude.toFloat()
 
-        val drone = getDroneDataFromController(controller)
+        val drone = getDroneDataFromController(controller, 0 , 0 , 0, 0 )
 
         if (followStage === FollowStage.READY) {
 //            target = targets.peek() ?: return
@@ -68,7 +68,7 @@ class DroneManager {
         }
     }
 
-    fun getDroneDataFromController(controller: FlightController, LeftV: Int = 0, LeftH: Int = 0, RightV: Int = 0, RightH: Int = 0): DroneData {
+    fun getDroneDataFromController(controller: FlightController, LeftV: Int, LeftH: Int, RightV: Int, RightH: Int): DroneData {
         return DroneData(
             "Follower",
             controller.state.aircraftLocation.altitude.toDouble(),

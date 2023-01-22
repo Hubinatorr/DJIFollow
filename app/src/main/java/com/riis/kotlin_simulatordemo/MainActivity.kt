@@ -119,11 +119,40 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 if (it.isConnected) {
                     mConnectStatusTextView.text = it.model.toString() + " Connected"
                     ret = true
+
+                    viewModel.getRemoteController()?.let { remoteController ->
+                        Log.i(DEBUG, "tui")
+                        remoteController.setHardwareStateCallback { state ->
+                            var lstick = state.leftStick
+                            var rstick = state.rightStick
+                            LeftH = lstick!!.horizontalPosition
+                            LeftV = lstick.verticalPosition
+                            RightH = rstick!!.horizontalPosition
+                            RightV =rstick.verticalPosition
+
+                        }
+                    }
+
                 } else {
                     if ((it as Aircraft?)?.remoteController != null && it.remoteController.isConnected) {
+                        viewModel.getRemoteController()?.let { remoteController ->
+                            Log.i(DEBUG, "tui")
+                            remoteController.setHardwareStateCallback { state ->
+                                var lstick = state.leftStick
+                                var rstick = state.rightStick
+                                LeftH = lstick!!.horizontalPosition
+                                LeftV = lstick.verticalPosition
+                                RightH = rstick!!.horizontalPosition
+                                RightV =rstick.verticalPosition
+
+                            }
+                        }
+
                         mConnectStatusTextView.text = "only RC Connected"
                         ret = true
-                    }
+
+
+                    } else {}
                 }
             }
 
@@ -132,16 +161,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             }
         })
 
-        viewModel.getRemoteController()?.let { remoteController ->
-            remoteController.setHardwareStateCallback { state ->
-                var lstick = state.leftStick!!
-                var rstick = state.rightStick!!
-                LeftH = lstick.horizontalPosition
-                LeftV = lstick.verticalPosition
-                RightH = rstick.horizontalPosition
-                RightV =rstick.verticalPosition
-            }
-        }
+
     }
 
     private fun initUi() {
@@ -270,8 +290,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     inner class SendDroneDataTask : TimerTask() {
         override fun run() {
             viewModel.getFlightController()?.let { controller ->
+                Log.i(DEBUG, RightV.toString());
                 val drone = droneManager.getDroneDataFromController(controller, LeftV, LeftH, RightV, RightH)
-                Log.i(RECORD, Klaxon().toJsonString(drone))
+//                Log.i(RECORD, Klaxon().toJsonString(drone))
+                webSocketClient.send(Klaxon().toJsonString(drone))
             }
         }
     }

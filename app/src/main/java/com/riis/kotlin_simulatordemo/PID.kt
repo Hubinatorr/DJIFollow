@@ -15,9 +15,9 @@ class PID {
     private var Kdy = 1.5
     private var Kdz = 1.5
 
-    private var Kix = 0.5
-    private var Kiy = 0.5
-    private var Kiz = 0.5
+    private var Kix = 0.0
+    private var Kiy = 0.0
+    private var Kiz = 0.0
 
     // Position Error
     private var eX = 0.0
@@ -67,10 +67,11 @@ class PID {
         veX = target.velocityX - drone.velocityX
         veY = target.velocityY - drone.velocityY
         veZ = target.velocityZ - drone.velocityZ
-
-        iX += ((eXprev + eX)/2 * deltaT)
-        iY += ((eYprev + eY)/2 * deltaT)
-        iZ += ((eZprev + eZ)/2 * deltaT)
+        if (prevTimestamp != 0L) {
+            iX += ((eXprev + eX)/2 * deltaT)
+            iY += ((eYprev + eY)/2 * deltaT)
+            iZ += ((eZprev + eZ)/2 * deltaT)
+        }
 
         Vx = Kpx * eX /**/ + Kix * iX /**/ + Kdx * veX
         Vy = Kpy * eY /**/ + Kiy * iY /**/ + Kdy * veY
