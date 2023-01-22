@@ -1,35 +1,45 @@
 package com.riis.kotlin_simulatordemo
 
+import android.util.Log
+import dji.sdksharedlib.nhf.gfd.fdd.Ma
 import kotlin.math.cos
 import kotlin.math.sin
 
 class PID {
-    private var Kp = 1.5
-    private var Kd = 1.5
-    private var Ki = 0.5
+    // Gains
+    private var Kpx = 1.5
+    private var Kpy = 1.5
+    private var Kpz = 1.5
 
+    private var Kdx = 1.5
+    private var Kdy = 1.5
+    private var Kdz = 1.5
+
+    private var Kix = 0.5
+    private var Kiy = 0.5
+    private var Kiz = 0.5
+
+    // Position Error
     private var eX = 0.0
-        get() = field
     private var eY = 0.0
-        get() = field
     private var eZ = 0.0
-        get() = field
 
+    // Velocity Error
     private var veX = 0.0
-        get() = field
     private var veY = 0.0
-        get() = field
     private var veZ = 0.0
-        get() = field
 
-    private var Ix = 0.0
-    private var Iy = 0.0
-    private var Iz = 0.0
+    // Internal Term
+    private var iX = 0.0
+    private var iY = 0.0
+    private var iZ = 0.0
 
+    // Previous Position Error
     private var eXprev = 0.0
     private var eYprev = 0.0
     private var eZprev = 0.0
 
+    // Output Velocity
     var Vx = 0.0
     var Vy = 0.0
     var Vz = 0.0
@@ -40,35 +50,31 @@ class PID {
 
     private var prevTimestamp: Long = 0
 
+    private lateinit var prevDrone: DroneData
+
+    private var learningRate = 0.1
+
+
+
     fun compute(drone: DroneData, target: DroneData) {
         val currentTimestamp = System.currentTimeMillis()
-        val deltaT = (currentTimestamp - prevTimestamp) / 1000
+        val deltaT = (currentTimestamp - prevTimestamp) / 1000.0
 
         eX = target.x + mLatitudeOffset - drone.x
         eY = target.y + mLongitudeOffset - drone.y
         eZ = target.z + mAltitudeOffset - drone.Altitude
 
-        if (prevTimestamp != 0L) {
-            Ix = Ki * (Ix + eX * deltaT)
-            Iy = Ki * (Iy + eY * deltaT)
-            Iz = Ki * (Iz + eZ * deltaT)
-        }
-
         veX = target.velocityX - drone.velocityX
         veY = target.velocityY - drone.velocityY
         veZ = target.velocityZ - drone.velocityZ
 
-        val Px = Kp * eX
-        val Py = Kp * eY
-        val Pz = Kp * eZ
+        iX += ((eXprev + eX)/2 * deltaT)
+        iY += ((eYprev + eY)/2 * deltaT)
+        iZ += ((eZprev + eZ)/2 * deltaT)
 
-        val Dx = Kd * veX
-        val Dy = Kd * veY
-        val Dz = Kd * veZ
-
-        Vx = Px + Ix + Dx
-        Vy = Py + Iy + Dy
-        Vz = Pz + Iz + Dz
+        Vx = Kpx * eX /**/ + Kix * iX /**/ + Kdx * veX
+        Vy = Kpy * eY /**/ + Kiy * iY /**/ + Kdy * veY
+        Vz = Kpz * eZ /**/ + Kiz * iZ /**/ + Kdz * veZ
 
         eXprev = eX
         eYprev = eY
@@ -90,5 +96,32 @@ class PID {
 
         var targetCommandX = xX + xY
         var targetCommandY = yX + yY
+    }
+
+    fun gradientDescendK(drone: DroneData) {
+        val ux = (Kpx * eX + Kix * iX + Kdx * veX - Vx)
+        val uy = (Kpy * eY + Kiy * iY + Kdy * veY - Vy)
+        val uz = (Kpz * eZ + Kiz * iZ + Kdz * veZ - Vz)
+
+        if (ux != 0.0) {
+            val diffX = drone.x - prevDrone.x
+            Kpx -= learningRate * -eX * (diffX / ux) * eX
+            Kdx -= learningRate * -eX * (diffX / ux) * veX
+            Kix -= learningRate * -eX * (diffX / ux) * iX
+        }
+
+        if (uy != 0.0) {
+            val diffY = drone.y - prevDrone.y
+            Kpy -= learningRate * -eY * (diffY / uy) * eY
+            Kdy -= learningRate * -eY * (diffY / uy) * veY
+            Kiy -= learningRate * -eY * (diffY / uy) * iY
+        }
+
+        if (uz != 0.0) {
+            val diffZ = drone.z - prevDrone.z
+            Kpz -= learningRate * -eZ * (diffZ / uz) * eZ
+            Kdz -= learningRate * -eZ * (diffZ / uz) * veZ
+            Kiz -= learningRate * -eZ * (diffZ / uz) * iZ
+        }
     }
 }

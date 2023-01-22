@@ -4,6 +4,7 @@ import android.util.Log
 import com.beust.klaxon.Klaxon
 import dji.common.flightcontroller.virtualstick.FlightControlData
 import dji.sdk.flightcontroller.FlightController
+import dji.sdksharedlib.nhf.gfd.fdd.Ma
 import dji.thirdparty.org.java_websocket.client.WebSocketClient
 import java.util.*
 
