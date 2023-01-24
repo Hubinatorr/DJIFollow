@@ -2,9 +2,12 @@ package com.riis.kotlin_simulatordemo
 
 import android.Manifest
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Log
 import android.view.View
 import android.widget.Button
+import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.viewModels
@@ -19,6 +22,7 @@ import java.net.URI
 import java.net.URISyntaxException
 import java.util.*
 
+
 class MainActivity : AppCompatActivity(), View.OnClickListener {
     private lateinit var mConnectStatusTextView: TextView
     private lateinit var mBtnEnableVirtualStick: Button
@@ -28,6 +32,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private lateinit var mBtnLoad: Button
     private lateinit var mBtnStartMission: Button
     private lateinit var mBtnStartFollow: Button
+    private lateinit var mFrequencyText: EditText
+
 
     lateinit var webSocketClient: WebSocketClient
     private var mSendVirtualStickDataTimer: Timer? = null
@@ -37,6 +43,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private val viewModel by viewModels<MainViewModel>()
 
     private var droneManager = DroneManager()
+
+    private var interval: Long = 40
 
     var LeftH: Int = 0
     var LeftV: Int = 0
@@ -77,6 +85,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         createWebSocketClient()
     }
 
+    private var first = true;
+
     private fun createWebSocketClient() {
         val uri: URI = try {
             URI("ws://147.229.193.119:8000")
@@ -92,6 +102,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             override fun onMessage(s: String) {
                 val droneData = Klaxon().parse<DroneData>(s)
                 if (droneData != null) {
+                    if (first) {
+                        first = false
+                        droneManager.beginPrimaryTimestamp = droneData.Timestamp
+                        droneManager.beginSecondaryTimestamp = System.currentTimeMillis()
+                    }
+
                     droneManager.target = droneData
                     droneManager.followStage = FollowStage.READY
                 } else {
@@ -119,9 +135,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 if (it.isConnected) {
                     mConnectStatusTextView.text = it.model.toString() + " Connected"
                     ret = true
-
                     viewModel.getRemoteController()?.let { remoteController ->
-                        Log.i(DEBUG, "tui")
                         remoteController.setHardwareStateCallback { state ->
                             var lstick = state.leftStick
                             var rstick = state.rightStick
@@ -132,26 +146,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
                         }
                     }
-
                 } else {
                     if ((it as Aircraft?)?.remoteController != null && it.remoteController.isConnected) {
-                        viewModel.getRemoteController()?.let { remoteController ->
-                            Log.i(DEBUG, "tui")
-                            remoteController.setHardwareStateCallback { state ->
-                                var lstick = state.leftStick
-                                var rstick = state.rightStick
-                                LeftH = lstick!!.horizontalPosition
-                                LeftV = lstick.verticalPosition
-                                RightH = rstick!!.horizontalPosition
-                                RightV =rstick.verticalPosition
-
-                            }
-                        }
-
                         mConnectStatusTextView.text = "only RC Connected"
                         ret = true
-
-
                     } else {}
                 }
             }
@@ -185,6 +183,22 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
         mBtnLoad = findViewById(R.id.btn_load)
         mBtnLoad.setOnClickListener(this)
+
+        mFrequencyText = findViewById(R.id.frequency)
+        mFrequencyText.addTextChangedListener(object : TextWatcher {
+
+            override fun afterTextChanged(s: Editable) {
+                interval = mFrequencyText.text.toString().toLongOrNull()!!
+            }
+
+            override fun beforeTextChanged(s: CharSequence, start: Int,
+                                           count: Int, after: Int) {
+            }
+
+            override fun onTextChanged(s: CharSequence, start: Int,
+                                       before: Int, count: Int) {
+            }
+        })
 
         mConnectStatusTextView = findViewById(R.id.ConnectStatusTextView)
     }
@@ -262,7 +276,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 }
             }
             R.id.btn_start_mission -> {
-                droneManager.target = Klaxon().parse("{\"Altitude\" : 1.100000023841858, \"Compass\" : 0.0, \"DroneId\" : \"DJI-Mavic\", \"Latitude\" : 49.226579703075075, \"LeftH\" : 0, \"LeftV\" : 0, \"Longitude\" : 16.59658932489439, \"Pitch\" : 1.0, \"RightH\" : 0, \"RightV\" : 0, \"Roll\" : 0.0, \"Timestamp\" : 1671373700213, \"Yaw\" : 0.0, \"velocityX\" : 0.0, \"velocityY\" : 0.0, \"velocityZ\" : 0.0}")!!
+                // Full
+//                droneManager.target = Klaxon().parse("{\"Altitude\" : 1.100000023841858, \"DroneId\" : \"Follower\", \"Latitude\" : 49.22659707263765, \"LeftH\" : 0, \"LeftV\" : 0, \"Longitude\" : 16.59663889824753, \"Pitch\" : 1.0, \"RightH\" : 0, \"RightV\" : 0, \"Roll\" : 0.0, \"Timestamp\" : 1674471884989, \"Yaw\" : 0.0,  \"velocityX\" : 0.0, \"velocityY\" : 0.0, \"velocityZ\" : 0.0, \"x\" : 5453872.76, \"y\" : 616249.3200000001, \"z\" : 1.100000023841858}")!!
+                // Normal
+                droneManager.target = Klaxon().parse("{\"Altitude\" : 1.100000023841858, \"DroneId\" : \"Follower\", \"Latitude\" : 49.22662334609545, \"LeftH\" : 0, \"LeftV\" : 0, \"Longitude\" : 16.596638945633124, \"Pitch\" : 1.0, \"RightH\" : 0, \"RightV\" : 0, \"Roll\" : 0.0, \"Timestamp\" : 1674472214136, \"Yaw\" : 0.0,  \"velocityX\" : 0.0, \"velocityY\" : 0.0, \"velocityZ\" : 0.0, \"x\" : 5453875.68, \"y\" : 616249.26, \"z\" : 1.100000023841858}")!!
                 if (mSendVirtualStickDataTimer == null) {
                     mSendVirtualStickDataTask = SendVirtualStickDataTask()
                     mSendVirtualStickDataTimer = Timer()

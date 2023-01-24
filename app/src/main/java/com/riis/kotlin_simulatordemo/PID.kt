@@ -2,22 +2,18 @@ package com.riis.kotlin_simulatordemo
 
 import android.util.Log
 import dji.sdksharedlib.nhf.gfd.fdd.Ma
+import dji.thirdparty.org.java_websocket.client.WebSocketClient
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.tanh
 
 class PID {
     // Gains
-    private var Kpx = 1.5
-    private var Kpy = 1.5
-    private var Kpz = 1.5
+    private var Kp = 2.0
 
-    private var Kdx = 1.5
-    private var Kdy = 1.5
-    private var Kdz = 1.5
+    private var Kd = 1.47
 
-    private var Kix = 0.0
-    private var Kiy = 0.0
-    private var Kiz = 0.0
+    private var Ki = 0.7
 
     // Position Error
     private var eX = 0.0
@@ -50,11 +46,7 @@ class PID {
 
     private var prevTimestamp: Long = 0
 
-    private lateinit var prevDrone: DroneData
-
     private var learningRate = 0.1
-
-
 
     fun compute(drone: DroneData, target: DroneData) {
         val currentTimestamp = System.currentTimeMillis()
@@ -68,14 +60,23 @@ class PID {
         veY = target.velocityY - drone.velocityY
         veZ = target.velocityZ - drone.velocityZ
         if (prevTimestamp != 0L) {
-            iX += ((eXprev + eX)/2 * deltaT)
-            iY += ((eYprev + eY)/2 * deltaT)
-            iZ += ((eZprev + eZ)/2 * deltaT)
+            iX += eX * deltaT
+            iY += eY * deltaT
+            iZ += eZ * deltaT
         }
 
-        Vx = Kpx * eX /**/ + Kix * iX /**/ + Kdx * veX
-        Vy = Kpy * eY /**/ + Kiy * iY /**/ + Kdy * veY
-        Vz = Kpz * eZ /**/ + Kiz * iZ /**/ + Kdz * veZ
+        Vx = Kp * eX /**/ + Ki * iX /**/ + Kd * veX
+        Vy = Kp * eY /**/ + Ki * iY /**/ + Kd * veY
+        Vz = Kp * eZ /**/ + Ki * iZ /**/ + Kd * veZ
+
+        val saturationX = (Vx > 10.0 || Vx < -10.0)
+        val saturationY = (Vy > 10.0 || Vy < -10.0)
+
+        val signX =((Vx * eX) > 0)
+        val signY =((Vy * eY) > 0)
+
+        iX = if (saturationX && signX) 0.0 else iX
+        iY = if (saturationY && signY) 0.0 else iY
 
         eXprev = eX
         eYprev = eY
@@ -99,7 +100,22 @@ class PID {
         var targetCommandY = yX + yY
     }
 
+    private var Kpx = 2.0
+    private var Kpy = 2.0
+    private var Kpz = 2.0
+
+    private var Kdx = 1.0
+    private var Kdy = 1.0
+    private var Kdz = 1.0
+
+    private var Kix = 0.0
+    private var Kiy = 0.0
+    private var Kiz = 0.0
+
+    private lateinit var prevDrone: DroneData
+
     fun gradientDescendK(drone: DroneData) {
+
         val ux = (Kpx * eX + Kix * iX + Kdx * veX - Vx)
         val uy = (Kpy * eY + Kiy * iY + Kdy * veY - Vy)
         val uz = (Kpz * eZ + Kiz * iZ + Kdz * veZ - Vz)

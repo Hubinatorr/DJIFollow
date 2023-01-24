@@ -1,48 +1,42 @@
 package com.riis.kotlin_simulatordemo
 
 import android.util.Log
-import com.beust.klaxon.Klaxon
 import dji.common.flightcontroller.virtualstick.FlightControlData
 import dji.sdk.flightcontroller.FlightController
-import dji.sdksharedlib.nhf.gfd.fdd.Ma
 import dji.thirdparty.org.java_websocket.client.WebSocketClient
 import java.util.*
 
 class DroneManager {
     lateinit var target: DroneData
+    lateinit var drone: DroneData
+
     var targets: Queue<DroneData> = LinkedList()
 
     var followStage = FollowStage.GOTO
 
-    private var beginPrimaryTimestamp: Long = 0
-    private var beginSecondaryTimestamp: Long = 0
+    var beginPrimaryTimestamp: Long = 0
+    var beginSecondaryTimestamp: Long = 0
 
     private var pidController = PID()
-    private var i = 0
+
+    private var i = 1
+
+    var mRoll = 0f
+    var mPitch = 0f
+    var mYaw = 0f
+    var mThrottle =0f
 
     fun calculateFollowData(controller: FlightController, webSocketClient: WebSocketClient ) {
-        var mRoll = 0f
-        var mPitch = 0f
-        val mYaw = 0f
-        val mThrottle = target.Altitude.toFloat()
-
         val drone = getDroneDataFromController(controller, 0 , 0 , 0, 0 )
 
         if (followStage === FollowStage.READY) {
 //            target = targets.peek() ?: return
 //            targets.remove()
 
-            if (i == 0) {
-                beginSecondaryTimestamp = System.currentTimeMillis()
-                beginPrimaryTimestamp = target.Timestamp
-            }
-
-            i++
-
             try {
-                drone.Timestamp = (beginPrimaryTimestamp + (System.currentTimeMillis() - beginSecondaryTimestamp))
 //                webSocketClient.send(Klaxon().toJsonString(drone))
-                webSocketClient.send("T," + drone.Latitude + "," + drone.Longitude + "," + (beginPrimaryTimestamp + (System.currentTimeMillis() - beginSecondaryTimestamp)))
+                drone.Timestamp = beginPrimaryTimestamp + (System.currentTimeMillis() - beginSecondaryTimestamp)
+                webSocketClient.send("T," + drone.Latitude + "," + drone.Longitude + ",")
 
             } catch (e: Exception) { Log.i(MainActivity.DEBUG, e.toString()) }
         }
@@ -59,6 +53,8 @@ class DroneManager {
 //            }
 //        }
 
+        mThrottle = target.Altitude.toFloat()
+
         controller.sendVirtualStickFlightControlData(
             FlightControlData(mPitch, mRoll, mYaw, mThrottle)
         ) { djiError ->
@@ -66,6 +62,7 @@ class DroneManager {
                 Log.i(MainActivity.DEBUG, djiError.description)
             }
         }
+        i++
     }
 
     fun getDroneDataFromController(controller: FlightController, LeftV: Int, LeftH: Int, RightV: Int, RightH: Int): DroneData {
@@ -86,6 +83,31 @@ class DroneManager {
             RightH,
             RightV
         );
+    }
+
+    private var prev = 0.0
+    private var prevPrev = 0.0
+    private var prevMax = 0.0
+    private var prevMaxTimestamp = 0L
+    private var prevTimestamp = 0L
+
+    fun calculateZieglerNicholsAmplitude() {
+        if (i % 5 == 0) {
+            val diff = drone.x - target.x
+
+            val t = System.currentTimeMillis()
+            if (prev != 0.0 && prevPrev != 0.0) {
+                if (diff < prev && prevPrev < prev) {
+                    Log.i(MainActivity.DEBUG, "max: $prev diff: ${prev - prevMax} period:${prevTimestamp - prevMaxTimestamp} t:$t" )
+                    prevMax = prev
+                    prevMaxTimestamp = prevTimestamp
+                }
+            }
+
+            prevTimestamp = t
+            prevPrev = prev
+            prev = diff
+        }
     }
 }
 
