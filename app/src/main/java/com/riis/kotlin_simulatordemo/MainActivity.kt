@@ -14,7 +14,9 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import com.beust.klaxon.Klaxon
+import dji.common.flightcontroller.simulator.InitializationData
 import dji.common.flightcontroller.virtualstick.*
+import dji.common.model.LocationCoordinate2D
 import dji.sdk.products.Aircraft
 import dji.thirdparty.org.java_websocket.client.WebSocketClient
 import dji.thirdparty.org.java_websocket.handshake.ServerHandshake
@@ -31,7 +33,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private lateinit var mBtnLand: Button
     private lateinit var mBtnLoad: Button
     private lateinit var mBtnStartMission: Button
-    private lateinit var mBtnStartFollow: Button
+    private lateinit var mBtnStartSimulator: Button
     private lateinit var mFrequencyText: EditText
 
 
@@ -85,8 +87,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         createWebSocketClient()
     }
 
-    private var first = true;
-
     private fun createWebSocketClient() {
         val uri: URI = try {
             URI("ws://147.229.193.119:8000")
@@ -100,19 +100,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             }
 
             override fun onMessage(s: String) {
-                val droneData = Klaxon().parse<DroneData>(s)
-                if (droneData != null) {
-                    if (first) {
-                        first = false
-                        droneManager.beginPrimaryTimestamp = droneData.Timestamp
-                        droneManager.beginSecondaryTimestamp = System.currentTimeMillis()
-                    }
-
-                    droneManager.target = droneData
-                    droneManager.followStage = FollowStage.READY
-                } else {
-                    Log.i(DEBUG, "Parse incorrect")
-                }
+//                val droneData = Klaxon().parse<DroneData>(s)
+//                if (droneData != null) {
+//                    droneManager.target = droneData
+//                    droneManager.followStage = FollowStage.READY
+//                } else {
+//                    Log.i(DEBUG, "Parse incorrect")
+//                }
             }
 
             override fun onClose(i: Int, s: String, b: Boolean) {
@@ -127,6 +121,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         webSocketClient.connect()
     }
 
+    private var prevTime = 0L
     private fun initObservers() {
         viewModel.connectionStatus.observe(this, androidx.lifecycle.Observer<Boolean> {
             initFlightController()
@@ -178,8 +173,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         mBtnStartMission = findViewById(R.id.btn_start_mission)
         mBtnStartMission.setOnClickListener(this)
 
-        mBtnStartFollow = findViewById(R.id.btn_start_record)
-        mBtnStartFollow.setOnClickListener(this)
+        mBtnStartSimulator = findViewById(R.id.btn_start_simulation)
+        mBtnStartSimulator.setOnClickListener(this)
 
         mBtnLoad = findViewById(R.id.btn_load)
         mBtnLoad.setOnClickListener(this)
@@ -199,7 +194,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                                        before: Int, count: Int) {
             }
         })
-
         mConnectStatusTextView = findViewById(R.id.ConnectStatusTextView)
     }
 
@@ -207,7 +201,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         viewModel.getFlightController()?.let {
             it.rollPitchControlMode = RollPitchControlMode.VELOCITY
             it.yawControlMode = YawControlMode.ANGLE
-            it.verticalControlMode = VerticalControlMode.POSITION
+            it.verticalControlMode = VerticalControlMode.VELOCITY
             it.rollPitchCoordinateSystem = FlightCoordinateSystem.BODY
         }
     }
@@ -268,38 +262,65 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 }
             }
             R.id.btn_load -> {
-                val droneData = Klaxon().parseArray<DroneData>(resources.openRawResource(R.raw.data))
-                if (droneData != null) {
-                    for (target in droneData) {
-                        droneManager.targets.add(target)
-                    }
-                }
+                val droneData = Klaxon().parseArray<DroneData>(resources.openRawResource(R.raw.normal160))!!
+                droneManager.targets = droneData
             }
             R.id.btn_start_mission -> {
-                // Full
-//                droneManager.target = Klaxon().parse("{\"Altitude\" : 1.100000023841858, \"DroneId\" : \"Follower\", \"Latitude\" : 49.22659707263765, \"LeftH\" : 0, \"LeftV\" : 0, \"Longitude\" : 16.59663889824753, \"Pitch\" : 1.0, \"RightH\" : 0, \"RightV\" : 0, \"Roll\" : 0.0, \"Timestamp\" : 1674471884989, \"Yaw\" : 0.0,  \"velocityX\" : 0.0, \"velocityY\" : 0.0, \"velocityZ\" : 0.0, \"x\" : 5453872.76, \"y\" : 616249.3200000001, \"z\" : 1.100000023841858}")!!
-                // Normal
-                droneManager.target = Klaxon().parse("{\"Altitude\" : 1.100000023841858, \"DroneId\" : \"Follower\", \"Latitude\" : 49.22662334609545, \"LeftH\" : 0, \"LeftV\" : 0, \"Longitude\" : 16.596638945633124, \"Pitch\" : 1.0, \"RightH\" : 0, \"RightV\" : 0, \"Roll\" : 0.0, \"Timestamp\" : 1674472214136, \"Yaw\" : 0.0,  \"velocityX\" : 0.0, \"velocityY\" : 0.0, \"velocityZ\" : 0.0, \"x\" : 5453875.68, \"y\" : 616249.26, \"z\" : 1.100000023841858}")!!
-                if (mSendVirtualStickDataTimer == null) {
-                    mSendVirtualStickDataTask = SendVirtualStickDataTask()
-                    mSendVirtualStickDataTimer = Timer()
-                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 40)
-                }
+                schedule()
             }
-            R.id.btn_start_record -> {
-                if (mSendDroneDataTimer == null) {
-                    mSendDroneDataTask = SendDroneDataTask()
-                    mSendDroneDataTimer = Timer()
-                    mSendDroneDataTimer?.schedule(mSendDroneDataTask, 0, 40)
-                }
+            R.id.btn_start_simulation -> {
+                startSimulation()
             }
         }
+    }
+    private fun schedule()
+    {
+        if (mSendVirtualStickDataTimer == null) {
+            mSendVirtualStickDataTask = SendVirtualStickDataTask()
+            mSendVirtualStickDataTimer = Timer()
+            mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 160)
+        }
+    }
+    private fun startSimulation()
+    {
+        viewModel.getFlightController()?.simulator?.start(
+            InitializationData.createInstance(
+                LocationCoordinate2D(23.0, 113.0), 10, 10
+            )
+        ) { djiError ->
+            if (djiError != null) {
+                Log.i(DEBUG, djiError.description)
+                showToast("Simulator Error: ${djiError.description}")
+            } else {
+                Log.i(DEBUG,"Start Simulator Success")
+                showToast("Start Simulator Success")
+            }
+        }
+    }
+    fun restartSimulation()
+    {
+        if(viewModel.getFlightController() == null) {
+            Log.i(DEBUG, "isFlightController Null ")
+        }
+        mSendVirtualStickDataTimer?.purge()
+
+        viewModel.getFlightController()?.simulator?.stop { djiError ->
+            if (djiError != null) {
+                Log.i(DEBUG, djiError.description)
+                showToast("Simulator Error: ${djiError.description}")
+            } else {
+                Log.i(DEBUG,"Stop Simulator Success")
+                showToast("Stop Simulator Success")
+            }
+        }
+
+        startSimulation()
     }
 
     inner class SendVirtualStickDataTask : TimerTask() {
         override fun run() {
             viewModel.getFlightController()?.let { controller ->
-                droneManager.calculateFollowData(controller, webSocketClient)
+                droneManager.calculateFollowData(controller, webSocketClient, this@MainActivity)
             }
         }
     }
@@ -307,9 +328,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     inner class SendDroneDataTask : TimerTask() {
         override fun run() {
             viewModel.getFlightController()?.let { controller ->
-                Log.i(DEBUG, RightV.toString());
                 val drone = droneManager.getDroneDataFromController(controller, LeftV, LeftH, RightV, RightH)
-//                Log.i(RECORD, Klaxon().toJsonString(drone))
                 webSocketClient.send(Klaxon().toJsonString(drone))
             }
         }

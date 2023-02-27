@@ -1,11 +1,7 @@
 package com.riis.kotlin_simulatordemo
 
-import android.util.Log
-import dji.sdksharedlib.nhf.gfd.fdd.Ma
-import dji.thirdparty.org.java_websocket.client.WebSocketClient
 import kotlin.math.cos
 import kotlin.math.sin
-import kotlin.math.tanh
 
 class PID {
     // Gains
@@ -13,7 +9,7 @@ class PID {
 
     private var Kd = 1.47
 
-    private var Ki = 0.7
+    private var Ki = 0.0
 
     // Position Error
     private var eX = 0.0
@@ -41,7 +37,7 @@ class PID {
     var Vz = 0.0
 
     private var mLatitudeOffset = 0.0
-    private var mLongitudeOffset = 3.0
+    private var mLongitudeOffset = 0.0
     private var mAltitudeOffset = 0.0
 
     private var prevTimestamp: Long = 0
@@ -59,6 +55,7 @@ class PID {
         veX = target.velocityX - drone.velocityX
         veY = target.velocityY - drone.velocityY
         veZ = target.velocityZ - drone.velocityZ
+
         if (prevTimestamp != 0L) {
             iX += eX * deltaT
             iY += eY * deltaT
@@ -71,12 +68,15 @@ class PID {
 
         val saturationX = (Vx > 10.0 || Vx < -10.0)
         val saturationY = (Vy > 10.0 || Vy < -10.0)
+        val saturationZ = (Vz > 10.0 || Vz < -10.0)
 
         val signX =((Vx * eX) > 0)
         val signY =((Vy * eY) > 0)
+        val signZ =((Vz * eZ) > 0)
 
         iX = if (saturationX && signX) 0.0 else iX
         iY = if (saturationY && signY) 0.0 else iY
+        iZ = if (saturationZ && signZ) 0.0 else iZ
 
         eXprev = eX
         eYprev = eY

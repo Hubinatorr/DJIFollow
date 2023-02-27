@@ -18,6 +18,6 @@ class DroneData(
     var RightV: Int
 ) {
     var x = Deg2UTM(Latitude, Longitude).Northing
-    val y = Deg2UTM(Latitude, Longitude).Easting
-    val z = Altitude
+    var y = Deg2UTM(Latitude, Longitude).Easting
+    var z = Altitude
 }
