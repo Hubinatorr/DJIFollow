@@ -1,7 +1,7 @@
 package com.riis.kotlin_simulatordemo
 
 class DroneData(
-    val DroneId: String,
+    val droneId: String,
     val Altitude: Double,
     val Latitude: Double,
     val Longitude: Double,
