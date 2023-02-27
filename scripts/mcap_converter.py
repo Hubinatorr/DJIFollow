@@ -9,7 +9,7 @@ with open('temp.mcap', "wb") as f:
     w = Writer(f)
     w.start("x-jsonschema", library="my-excellent-library")
 
-    with open(Path(__file__).parent / "data/PosesInFrame.json", "rb") as f:
+    with open(Path(__file__).parent / "schemas/PosesInFrame.json", "rb") as f:
         schema = f.read()
 
     schema_id = w.register_schema(
@@ -24,7 +24,7 @@ with open('temp.mcap', "wb") as f:
         schema_id=schema_id,
     )
 
-    data = json.load(open(Path(__file__).parent / "data/follower.json", "rb"))
+    data = json.load(open(Path(__file__).parent / "schemas/follower.json", "rb"))
     poses = []
 
     for pos in data:

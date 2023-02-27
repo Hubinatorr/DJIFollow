@@ -2,7 +2,6 @@ import json
 
 modulo = 4
 
-
 def normalize_file(name):
     data = json.load(open('../app/src/main/res/raw/' + name, 'r'))
     i = 4
