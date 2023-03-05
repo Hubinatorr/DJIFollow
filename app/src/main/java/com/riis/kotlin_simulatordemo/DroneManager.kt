@@ -12,19 +12,42 @@ class DroneManager {
 
     private var pidController = PID()
 
+    lateinit var controller: FlightController
+    lateinit var webSocketClient: WebSocketClient
+    var controls = Controls(0,0,0,0)
+
     private var i = 0
+
+    var record = false;
 
     var mRoll = 0f
     var mPitch = 0f
     var mYaw = 0f
     var mThrottle =0f
 
-    fun calculateFollowData(controller: FlightController, webSocketClient: WebSocketClient, mainActivity: MainActivity) {
-        val drone = getDroneDataFromController(controller, 0 , 0 , 0, 0 )
-        webSocketClient.send(Klaxon().toJsonString(drone))
+    fun onStateChange() {
+        if (record) {
+            webSocketClient.send(Klaxon().toJsonString(getDroneState("t")))
+        }
+    }
+
+    fun calculateFollowData() {
+        val drone = getDroneState("f")
+        if (i == 0) {
+            x0 = drone.x
+            y0 = drone.y
+            t0 = System.currentTimeMillis()
+            drone.x = 0.0
+            drone.y = 0.0
+            drone.t = 0
+        }
+
         if (i < targets.size) {
+            targets[i].x -= tx0
+            targets[i].y -= ty0
             pidController.compute(drone, targets[i])
 
+            webSocketClient.send(Klaxon().toJsonString(drone))
             mRoll = pidController.Vx.coerceIn(-10.0, 10.0).toFloat()
             mPitch = pidController.Vy.coerceIn(-10.0, 10.0).toFloat()
             mThrottle = 0f
@@ -40,69 +63,33 @@ class DroneManager {
         }
 
     }
+    companion object {
+        const val DEBUG = "PrintDebug"
+        const val RECORD = "PrintRecord"
+    }
 
-    private var oX = 0.0
-    private var oY = 0.0
-    private var oZ = 0.0
-    private var oT = 0L
-    fun getDroneDataFromController(controller: FlightController, LeftV: Int, LeftH: Int, RightV: Int, RightH: Int): DroneData {
-        val timestamp = System.currentTimeMillis()
-        val drone = DroneData(
-            "Follower",
+    private fun getDroneState(name: String) : DroneData
+    {
+        return DroneData(
+            System.currentTimeMillis() - t0,
+            name,
+            Deg2UTM(controller.state.aircraftLocation.latitude, controller.state.aircraftLocation.longitude).Northing - x0,
+            Deg2UTM(controller.state.aircraftLocation.latitude, controller.state.aircraftLocation.longitude).Easting - y0,
             controller.state.aircraftLocation.altitude.toDouble(),
-            controller.state.aircraftLocation.latitude,
-            controller.state.aircraftLocation.longitude,
-            controller.state.attitude.pitch,
-            controller.state.attitude.roll,
-            controller.state.attitude.yaw,
             controller.state.velocityX.toDouble(),
             controller.state.velocityY.toDouble(),
             controller.state.velocityZ.toDouble(),
-            timestamp,
-            LeftH,
-            LeftV,
-            RightH,
-            RightV
+            controller.state.attitude.roll,
+            controller.state.attitude.pitch,
+            controller.state.attitude.yaw,
+            controls
         )
-
-        if (i == 0) {
-            oX = drone.x
-            oY = drone.y
-            oZ = drone.z
-            oT = timestamp
-        }
-
-        drone.x -= oX
-        drone.y -= oY
-        drone.z -= oZ + 1
-        drone.Timestamp -= oT
-
-        return drone
     }
 
-//    private var prev = 0.0
-//    private var prevPrev = 0.0
-//    private var prevMax = 0.0
-//    private var prevMaxTimestamp = 0L
-//    private var prevTimestamp = 0L
-
-//    fun calculateZieglerNicholsAmplitude() {
-//        if (i % 5 == 0) {
-//            val diff = drone.x - target.x
-//
-//            val t = System.currentTimeMillis()
-//            if (prev != 0.0 && prevPrev != 0.0) {
-//                if (diff < prev && prevPrev < prev) {
-//                    Log.i(MainActivity.DEBUG, "max: $prev diff: ${prev - prevMax} period:${prevTimestamp - prevMaxTimestamp} t:$t" )
-//                    prevMax = prev
-//                    prevMaxTimestamp = prevTimestamp
-//                }
-//            }
-//
-//            prevTimestamp = t
-//            prevPrev = prev
-//            prev = diff
-//        }
-//    }
+    var x0 = 0.0
+    var y0 = 0.0
+    var t0 = 0L
+    var tx0 = 0.0
+    var ty0 = 0.0
 }
 

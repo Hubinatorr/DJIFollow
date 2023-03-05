@@ -32,26 +32,18 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private lateinit var mBtnTakeOff: Button
     private lateinit var mBtnLand: Button
     private lateinit var mBtnLoad: Button
+    private lateinit var mBtnRecord: Button
     private lateinit var mBtnStartMission: Button
     private lateinit var mBtnStartSimulator: Button
     private lateinit var mFrequencyText: EditText
 
-
-    lateinit var webSocketClient: WebSocketClient
     private var mSendVirtualStickDataTimer: Timer? = null
     private var mSendVirtualStickDataTask: SendVirtualStickDataTask? = null
-    private var mSendDroneDataTimer: Timer? = null
-    private var mSendDroneDataTask: SendDroneDataTask? = null
     private val viewModel by viewModels<MainViewModel>()
 
     private var droneManager = DroneManager()
 
-    private var interval: Long = 40
-
-    var LeftH: Int = 0
-    var LeftV: Int = 0
-    var RightH: Int = 0
-    var RightV: Int = 0
+    private var interval: Long = 100
 
     companion object {
         const val DEBUG = "PrintDebug"
@@ -82,9 +74,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             ), 1
         )
         viewModel.startSdkRegistration(this)
+        createWebSocketClient()
         initObservers()
         initUi()
-        createWebSocketClient()
+
     }
 
     private fun createWebSocketClient() {
@@ -94,7 +87,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             e.printStackTrace()
             return
         }
-        webSocketClient = object : WebSocketClient(uri) {
+        droneManager.webSocketClient = object : WebSocketClient(uri) {
             override fun onOpen(serverHandshake: ServerHandshake) {
                 Log.i(DEBUG, "Connected to the DroCo server.")
             }
@@ -118,10 +111,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             }
         }
 
-        webSocketClient.connect()
+        droneManager.webSocketClient.connect()
     }
 
-    private var prevTime = 0L
     private fun initObservers() {
         viewModel.connectionStatus.observe(this, androidx.lifecycle.Observer<Boolean> {
             initFlightController()
@@ -132,13 +124,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                     ret = true
                     viewModel.getRemoteController()?.let { remoteController ->
                         remoteController.setHardwareStateCallback { state ->
-                            var lstick = state.leftStick
-                            var rstick = state.rightStick
-                            LeftH = lstick!!.horizontalPosition
-                            LeftV = lstick.verticalPosition
-                            RightH = rstick!!.horizontalPosition
-                            RightV =rstick.verticalPosition
-
+                            val lstick = state.leftStick!!
+                            val rstick = state.rightStick!!
+                            droneManager.controls = Controls(
+                                lstick.horizontalPosition,
+                                lstick.verticalPosition,
+                                rstick.horizontalPosition,
+                                rstick.verticalPosition
+                            )
                         }
                     }
                 } else {
@@ -170,6 +163,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         mBtnLand = findViewById(R.id.btn_land)
         mBtnLand.setOnClickListener(this)
 
+        mBtnRecord = findViewById(R.id.btn_record)
+        mBtnRecord.setOnClickListener(this)
+
         mBtnStartMission = findViewById(R.id.btn_start_mission)
         mBtnStartMission.setOnClickListener(this)
 
@@ -178,6 +174,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
         mBtnLoad = findViewById(R.id.btn_load)
         mBtnLoad.setOnClickListener(this)
+
+        mConnectStatusTextView = findViewById(R.id.ConnectStatusTextView)
 
         mFrequencyText = findViewById(R.id.frequency)
         mFrequencyText.addTextChangedListener(object : TextWatcher {
@@ -194,15 +192,18 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                                        before: Int, count: Int) {
             }
         })
-        mConnectStatusTextView = findViewById(R.id.ConnectStatusTextView)
     }
 
     private fun initFlightController() {
         viewModel.getFlightController()?.let {
             it.rollPitchControlMode = RollPitchControlMode.VELOCITY
             it.yawControlMode = YawControlMode.ANGLE
-            it.verticalControlMode = VerticalControlMode.VELOCITY
-            it.rollPitchCoordinateSystem = FlightCoordinateSystem.BODY
+            it.verticalControlMode = VerticalControlMode.POSITION
+            it.rollPitchCoordinateSystem = FlightCoordinateSystem.GROUND
+            it.setStateCallback {
+                droneManager.onStateChange()
+            }
+            droneManager.controller = it
         }
     }
 
@@ -262,7 +263,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 }
             }
             R.id.btn_load -> {
-                val droneData = Klaxon().parseArray<DroneData>(resources.openRawResource(R.raw.normal160))!!
+                val droneData = Klaxon().parseArray<DroneData>(resources.openRawResource(R.raw.normal))!!
+                droneManager.tx0 = droneData[0].x
+                droneManager.ty0 = droneData[0].y
                 droneManager.targets = droneData
             }
             R.id.btn_start_mission -> {
@@ -271,6 +274,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             R.id.btn_start_simulation -> {
                 startSimulation()
             }
+            R.id.btn_record -> {
+                droneManager.record = !droneManager.record
+                if (droneManager.record)
+                    showToast("Start Record")
+                else
+                    showToast("Stop Record")
+            }
         }
     }
     private fun schedule()
@@ -278,14 +288,15 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         if (mSendVirtualStickDataTimer == null) {
             mSendVirtualStickDataTask = SendVirtualStickDataTask()
             mSendVirtualStickDataTimer = Timer()
-            mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, 160)
+            mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, interval)
         }
     }
+
     private fun startSimulation()
     {
         viewModel.getFlightController()?.simulator?.start(
             InitializationData.createInstance(
-                LocationCoordinate2D(23.0, 113.0), 10, 10
+                LocationCoordinate2D(49.2, 16.6), 10, 10
             )
         ) { djiError ->
             if (djiError != null) {
@@ -319,21 +330,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
     inner class SendVirtualStickDataTask : TimerTask() {
         override fun run() {
-            viewModel.getFlightController()?.let { controller ->
-                droneManager.calculateFollowData(controller, webSocketClient, this@MainActivity)
-            }
+            droneManager.calculateFollowData()
         }
     }
-
-    inner class SendDroneDataTask : TimerTask() {
-        override fun run() {
-            viewModel.getFlightController()?.let { controller ->
-                val drone = droneManager.getDroneDataFromController(controller, LeftV, LeftH, RightV, RightH)
-                webSocketClient.send(Klaxon().toJsonString(drone))
-            }
-        }
-    }
-
     fun onReturn(view: View) {
         this.finish()
     }
@@ -352,17 +351,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             it.cancel()
             it.purge()
             mSendVirtualStickDataTimer = null
-        }
-
-        mSendDroneDataTask?.let {
-            it.cancel()
-            mSendDroneDataTask = null
-        }
-
-        mSendDroneDataTimer?.let {
-            it.cancel()
-            it.purge()
-            mSendDroneDataTimer = null
         }
         super.onDestroy()
     }

@@ -48,13 +48,13 @@ class PID {
         val currentTimestamp = System.currentTimeMillis()
         val deltaT = (currentTimestamp - prevTimestamp) / 1000.0
 
-        eX = target.x + mLatitudeOffset - drone.x
-        eY = target.y + mLongitudeOffset - drone.y
-        eZ = target.z + mAltitudeOffset - drone.Altitude
+        eX = target.x - drone.x + mLatitudeOffset
+        eY = target.y - drone.y + mLongitudeOffset
+        eZ = target.z - drone.z + mAltitudeOffset
 
-        veX = target.velocityX - drone.velocityX
-        veY = target.velocityY - drone.velocityY
-        veZ = target.velocityZ - drone.velocityZ
+        veX = target.vX - drone.vX
+        veY = target.vY - drone.vY
+        veZ = target.vZ - drone.vZ
 
         if (prevTimestamp != 0L) {
             iX += eX * deltaT
@@ -86,9 +86,9 @@ class PID {
     }
 
     fun computeWithCommand(drone: DroneData, target: DroneData) {
-        var targetHeading = Angle(target.Yaw).value
-        var targetCommandSpeedX = ((target.RightV/660.0)*10)
-        var targetCommandSpeedY = ((target.RightH/660.0)*10)
+        var targetHeading = Angle(target.yaw).value
+        var targetCommandSpeedX = ((target.controls.rv/660.0)*10)
+        var targetCommandSpeedY = ((target.controls.rh/660.0)*10)
 
         var xX = targetCommandSpeedX * cos(Math.toRadians(targetHeading))
         var yX = targetCommandSpeedX * sin(Math.toRadians(targetHeading))
