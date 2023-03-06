@@ -14,6 +14,7 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import com.beust.klaxon.Klaxon
+import dji.common.flightcontroller.FlightControllerState
 import dji.common.flightcontroller.simulator.InitializationData
 import dji.common.flightcontroller.virtualstick.*
 import dji.common.model.LocationCoordinate2D
@@ -194,15 +195,17 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         })
     }
 
+    private var prevT = 0L
     private fun initFlightController() {
         viewModel.getFlightController()?.let {
             it.rollPitchControlMode = RollPitchControlMode.VELOCITY
             it.yawControlMode = YawControlMode.ANGLE
             it.verticalControlMode = VerticalControlMode.POSITION
             it.rollPitchCoordinateSystem = FlightCoordinateSystem.GROUND
-            it.setStateCallback {
+            val callback= FlightControllerState.Callback {
                 droneManager.onStateChange()
             }
+            it.setStateCallback(callback)
             droneManager.controller = it
         }
     }
