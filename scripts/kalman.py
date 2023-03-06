@@ -1,6 +1,9 @@
 import json
+import math
 from pathlib import Path
 import numpy as np
+from numpy import cos, sin
+
 data = json.load(open(Path(__file__).parent / "data/normalTurn.json", "r"))
 
 class Kalman:
@@ -63,21 +66,59 @@ class Kalman:
         self.rollErr = self.pitchErr = self.maxEuler = 0
         self.posErrorMag = self.velErrorMag = 0
 
-    def predictState(self, dt, i):
-        predictedState = self.ekfState
-        predictedState[0] = predictedState[0] + self.ekfState[3] * dt + (((data[i]["vX"] - data[i-1]["vX"])/ (data[i]["t"] - data[i-1]["t"])) * pow(dt, 2))
-        predictedState[1] = predictedState[1] + self.ekfState[4] * dt + (((data[i]["vY"] - data[i-1]["vY"])/ (data[i]["t"] - data[i-1]["t"])) * pow(dt, 2))
-        predictedState[2] = predictedState[2] + self.ekfState[5] * dt + (((data[i]["vZ"] - data[i-1]["vZ"])/ (data[i]["t"] - data[i-1]["t"])) * pow(dt, 2))
-        return predictedState
+    def getRbgPrime(self, roll, pitch, yaw):
+        roll = math.radians(roll)
+        pitch = math.radians(pitch)
+        yaw = math.radians(yaw)
+        rbgPrime = np.zeros((3,3))
+        rbgPrime[0][0] = cos(pitch) * cos(yaw)
+        rbgPrime[0][1] = sin(roll) * sin(pitch) * cos(yaw) - cos(roll) * sin(yaw)
+        rbgPrime[0][2] = cos(roll) * sin(pitch) * cos(yaw) + sin(roll) * sin(yaw)
+        rbgPrime[1][0] = cos(pitch) * cos(yaw)
+        rbgPrime[1][1] = sin(roll) * sin(pitch) * sin(yaw) + cos(roll) * cos(yaw)
+        rbgPrime[1][2] = cos(roll) * sin(pitch) * sin(yaw) - sin(roll) * cos(yaw)
+        rbgPrime[2][0] = -sin(yaw)
+        rbgPrime[2][1] = cos(pitch) * sin(roll)
+        rbgPrime[2][2] = cos(roll) * cos(pitch)
+
+        return rbgPrime
+
+
 
     def predict(self, dt, i):
+        acX = 0
+        acY = 0
+        acZ = 0
+
+        if i != 0:
+            acX = ((data[i]["vX"] - data[i-1]["vX"])/(data[i]["t"] - data[i-1]["t"])/1000)*dt
+            acY = ((data[i]["vY"] - data[i-1]["vY"])/(data[i]["t"] - data[i-1]["t"])/1000)*dt
+            acZ = ((data[i]["vZ"] - data[i-1]["vZ"])/(data[i]["t"] - data[i-1]["t"])/1000)*dt
         newState = self.predictState(dt, i)
+
+        rbgPrime = self.getRbgPrime(data[i]["roll"], data[i]["pitch"], data[i]["yaw"])
         gPrime = np.identity(self.QUAD_EKF_NUM_STATES)
         gPrime[0][3] = dt
         gPrime[1][4] = dt
         gPrime[2][5] = dt
+        gPrime[3][6] = (rbgPrime[0][0] * acX + rbgPrime[0][1] * acY + rbgPrime[0][2] * acZ)*dt
+        gPrime[4][6] = (rbgPrime[1][0] * acX + rbgPrime[1][1] * acY + rbgPrime[1][2] * acZ)*dt
+        gPrime[5][6] = (rbgPrime[2][0] * acX + rbgPrime[2][1] * acY + rbgPrime[2][2] * acZ)*dt
+
         self.ekfCov = np.add(gPrime @ (self.ekfCov @ np.transpose(gPrime)), self.Q)
         self.ekfState = newState
+
+    def predictState(self, dt, i):
+        predictedState = self.ekfState
+        predictedState[0] = predictedState[0] + self.ekfState[3] * dt
+        predictedState[1] = predictedState[1] + self.ekfState[4] * dt
+        predictedState[2] = predictedState[2] + self.ekfState[5] * dt
+        if i != 0:
+            predictedState[3] = predictedState[3] + ((data[i]["vX"] - data[i-1]["vX"])/(data[i]["t"] - data[i-1]["t"])/1000)*dt
+            predictedState[4] = predictedState[4] + ((data[i]["vY"] - data[i-1]["vY"])/(data[i]["t"] - data[i-1]["t"])/1000)*dt
+            predictedState[5] = predictedState[5] + ((data[i]["vZ"] - data[i-1]["vZ"])/(data[i]["t"] - data[i-1]["t"])/1000)*dt
+
+        return predictedState
 
     def update(self, z, H, R, zFromX):
         toInvert = np.add(H @ self.ekfCov @ np.transpose(H), R)
