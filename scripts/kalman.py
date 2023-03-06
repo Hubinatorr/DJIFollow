@@ -3,8 +3,8 @@ import math
 from pathlib import Path
 import numpy as np
 from numpy import cos, sin
-
-data = json.load(open(Path(__file__).parent / "data/normalTurn.json", "r"))
+from matplotlib import pyplot as plt
+data = json.load(open(Path(__file__).parent / "data/normal.json", "r"))
 
 class Kalman:
     def __init__(self):
@@ -83,8 +83,6 @@ class Kalman:
 
         return rbgPrime
 
-
-
     def predict(self, dt, i):
         acX = 0
         acY = 0
@@ -112,11 +110,12 @@ class Kalman:
         predictedState = self.ekfState
         predictedState[0] = predictedState[0] + self.ekfState[3] * dt
         predictedState[1] = predictedState[1] + self.ekfState[4] * dt
+
         predictedState[2] = predictedState[2] + self.ekfState[5] * dt
         if i != 0:
-            predictedState[3] = predictedState[3] + ((data[i]["vX"] - data[i-1]["vX"])/(data[i]["t"] - data[i-1]["t"])/1000)*dt
-            predictedState[4] = predictedState[4] + ((data[i]["vY"] - data[i-1]["vY"])/(data[i]["t"] - data[i-1]["t"])/1000)*dt
-            predictedState[5] = predictedState[5] + ((data[i]["vZ"] - data[i-1]["vZ"])/(data[i]["t"] - data[i-1]["t"])/1000)*dt
+            predictedState[3] = predictedState[3] + ((data[i]["vX"] - data[i-1]["vX"])/((data[i]["t"] - data[i-1]["t"])/1000))*dt
+            predictedState[4] = predictedState[4] + ((data[i]["vY"] - data[i-1]["vY"])/((data[i]["t"] - data[i-1]["t"])/1000))*dt
+            predictedState[5] = predictedState[5] + ((data[i]["vZ"] - data[i-1]["vZ"])/((data[i]["t"] - data[i-1]["t"])/1000))*dt
 
         return predictedState
 
@@ -131,7 +130,7 @@ class Kalman:
         self.ekfCov = (np.subtract(eye, K @ H)) @ self.ekfCov
 
     def updateFromGPS(self, pos):
-        z = np.array([pos['x'] - data[0]['x'], pos['y'] - data[0]['x'], pos['z'] - data[0]['z'], pos['vX'], pos['vY'], pos['vZ']])
+        z = np.array([pos['x'] - data[0]['x'], pos['y'] - data[0]['y'], pos['z'] - data[0]['z'], pos['vX'], pos['vY'], pos['vZ']])
         zFromX = np.zeros(6)
         hPrime = np.zeros((6, self.QUAD_EKF_NUM_STATES))
         hPrime[0][0] = 1.0
@@ -153,8 +152,53 @@ class Kalman:
 
 kalman = Kalman()
 
+xx = []
+
+xEst = []
+xZ = []
+
+yEst = []
+yZ = []
+
+vxEst = []
+vxZ = []
+
+vyEst = []
+vyZ = []
+
 for i, pos in enumerate(data):
     if i < len(data) - 1:
-        kalman.predict((data[i+1]["t"] - pos["t"])/1000, i)
-    kalman.updateFromGPS(pos)
-    print(kalman.ekfState[0], pos["x"]-data[0]["x"])
+        kalman.predict((data[i+1]["t"] - data[i]["t"])/1000, i)
+        xEst.append(kalman.ekfState[0])
+        xZ.append(pos["x"] - data[0]["x"])
+        yEst.append(kalman.ekfState[1])
+        yZ.append(pos["y"] - data[0]["y"])
+        vxEst.append(kalman.ekfState[3])
+        vxZ.append(pos["vX"])
+        vyEst.append(kalman.ekfState[4])
+        vyZ.append(pos["vY"])
+        xx.append(pos["t"] - data[0]["t"])
+        kalman.updateFromGPS(pos)
+
+fig, axs = plt.subplots(2, 2)
+axs[0, 0].plot(xx, xEst)
+axs[0, 0].plot(xx, xZ)
+axs[0, 0].set_title('x')
+axs[0, 1].plot(xx, yEst)
+axs[0, 1].plot(xx, yZ)
+axs[0, 1].set_title('y')
+axs[1, 0].plot(xx, vxEst)
+axs[1, 0].plot(xx, vxZ)
+axs[1, 0].set_title('velocityX')
+axs[1, 1].plot(xx, vyEst)
+axs[1, 1].plot(xx, vyZ)
+axs[1, 1].set_title('velocityY')
+
+for ax in axs.flat:
+    ax.set(xlabel='x-label', ylabel='y-label')
+
+# Hide x labels and tick labels for top plots and y ticks for right plots.
+for ax in axs.flat:
+    ax.label_outer()
+
+plt.show()
