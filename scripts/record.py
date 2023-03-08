@@ -5,19 +5,29 @@ from pathlib import Path
 import sys
 
 data = []
-first = 1
+
 
 def on_close(signum, frame):
-    path = "data/" + sys.argv[1]
+    oX = data[0]["x"]
+    oY = data[0]["y"]
+    oZ = data[0]["z"]
+    oT = data[0]["t"]
+    for pos in data:
+        pos["x"] = pos["x"] - oX
+        pos["y"] = pos["y"] - oY
+        pos["z"] = pos["z"] - oZ
+        pos["t"] = pos["t"] - oT
+
+    path = "recordData/" + sys.argv[1] + '.json'
     with open(Path(__file__).parent / path, "w") as myfile:
         myfile.write(json.dumps(data))
         myfile.close()
     exit()
 
+
 def on_message(wsapp, message):
     position = json.loads(message)
     data.append(position)
-    print(data)
 
 
 signal.signal(signal.SIGINT, on_close)

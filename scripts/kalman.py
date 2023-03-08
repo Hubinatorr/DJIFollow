@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 from numpy import cos, sin
 from matplotlib import pyplot as plt
-data = json.load(open(Path(__file__).parent / "data/normal.json", "r"))
+data = json.load(open(Path(__file__).parent / "data/normalNoise.json", "r"))
 
 class Kalman:
     def __init__(self):

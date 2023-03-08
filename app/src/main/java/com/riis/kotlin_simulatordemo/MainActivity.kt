@@ -267,9 +267,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             }
             R.id.btn_load -> {
                 val droneData = Klaxon().parseArray<DroneData>(resources.openRawResource(R.raw.normal))!!
-                droneManager.tx0 = droneData[0].x
-                droneManager.ty0 = droneData[0].y
-                droneManager.targets = droneData
             }
             R.id.btn_start_mission -> {
                 schedule()

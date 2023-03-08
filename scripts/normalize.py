@@ -1,34 +1,23 @@
 import json
+import signal
+from pathlib import Path
+import sys
 
-modulo = 4
+path = "data/" + sys.argv[1] + '.json'
+data = json.load(open(Path(__file__).parent / path, "r"))
 
-def normalize_file(name):
-    data = json.load(open('../app/src/main/res/raw/' + name, 'r'))
-    i = 4
-    final = []
-    oX = data[0]['x']
-    oY = data[0]['y']
-    oZ = data[0]['z']
-    oT = data[0]['Timestamp']
+oX = data[0]["x"]
+oY = data[0]["y"]
+oZ = data[0]["z"]
+oT = data[0]["t"]
 
-    for position in data:
-        if i % modulo == 0:
-            position['Timestamp'] = position['Timestamp'] - oT
-            position['x'] = position['x'] - oX
-            position['y'] = position['y'] - oY
-            position['z'] = position['z'] - oZ + 1
-            final.append({
-                "x": position['x'] - oX,
-                "y": position['y'] - oY,
-                "z": position['z'] - oZ + 1
-            })
-        i = i + 1
+for pos in data:
+    pos["x"] = pos["x"]-oX
+    pos["y"] = pos["y"]-oY
+    pos["z"] = pos["z"]-oZ
+    pos["t"] = pos["t"]-oT
 
-    with open('../app/src/main/res/raw/' + name + str(modulo * 40), 'w') as myfile:
-        myfile.write(json.dumps(final))
-
-
-if __name__ == "__main__":
-    normalize_file('normal')
-    normalize_file('full')
-    normalize_file('shaky')
+path = "data/" + sys.argv[1] + '.json'
+with open(Path(__file__).parent / path, "w") as myfile:
+    myfile.write(json.dumps(data))
+    myfile.close()

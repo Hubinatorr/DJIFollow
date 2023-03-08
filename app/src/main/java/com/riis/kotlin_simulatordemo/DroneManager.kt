@@ -25,6 +25,10 @@ class DroneManager {
     var mYaw = 0f
     var mThrottle =0f
 
+
+    var x0 = 0.0
+    var y0 = 0.0
+    var t0 = 0L
     fun onStateChange() {
         if (record) {
             webSocketClient.send(Klaxon().toJsonString(getDroneState("t")))
@@ -43,8 +47,6 @@ class DroneManager {
         }
 
         if (i < targets.size) {
-            targets[i].x -= tx0
-            targets[i].y -= ty0
             pidController.compute(drone, targets[i])
 
             webSocketClient.send(Klaxon().toJsonString(drone))
@@ -64,8 +66,7 @@ class DroneManager {
 
     }
     companion object {
-        const val DEBUG = "PrintDebug"
-        const val RECORD = "PrintRecord"
+        const val DEBUG = "drone"
     }
 
     private fun getDroneState(name: String) : DroneData
@@ -85,11 +86,5 @@ class DroneManager {
             controls
         )
     }
-
-    var x0 = 0.0
-    var y0 = 0.0
-    var t0 = 0L
-    var tx0 = 0.0
-    var ty0 = 0.0
 }
 
