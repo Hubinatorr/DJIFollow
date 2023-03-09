@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 from math import sin, pi
 
-path = "data/" + sys.argv[1] + '.json'
+path = "testData/" + sys.argv[1] + '.json'
 data = json.load(open(Path(__file__).parent / path, "r"))
 
 maxNoise = 1
@@ -23,7 +23,7 @@ for i, pos in enumerate(data):
     pos["x"] = pos["x"] + n
     pos["y"] = pos["y"] + n
 
-path = "data/" + sys.argv[1] + 'noise_' + str(maxNoise) +'_' + str(f)+'.json'
+path = "data/" + sys.argv[1] + '_noise_' + str(maxNoise) + '_' + str(f)+'.json'
 with open(Path(__file__).parent / path, "w") as myfile:
     myfile.write(json.dumps(data))
     myfile.close()
