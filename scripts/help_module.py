@@ -6,8 +6,8 @@ def get_noise(data, f, max_noise):
         n = sin((2 * pi) / f * (i % f)) * max_noise
         pos["x"] = pos["x"] + n
         pos["y"] = pos["y"] + n
-        pos["vX"] = pos["vX"] + n
-        pos["vY"] = pos["vY"] + n
+        # pos["vX"] = pos["vX"] + n
+        # pos["vY"] = pos["vY"] + n
     return noise_data
 
 def get_angle(angle):

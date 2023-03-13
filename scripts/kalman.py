@@ -71,22 +71,9 @@ class Kalman:
         self.rollErr = self.pitchErr = self.maxEuler = 0
         self.posErrorMag = self.velErrorMag = 0
 
-    def getRbgPrime(self, roll, pitch, yaw):
-        theta = math.radians(roll)
-        phi = math.radians(pitch)
-        psi = math.radians(yaw)
-        rbgPrime = np.zeros((3,3))
-        rbgPrime[0][0] = -cos(theta)*sin(psi)
-        rbgPrime[0][1] = -sin(phi)*sin(theta)*sin(psi) - cos(phi)*cos(psi)
-        rbgPrime[0][2] = -cos(phi)*sin(theta)*sin(psi) + sin(phi)*cos(psi)
-        rbgPrime[1][0] = cos(theta)*cos(psi)
-        rbgPrime[1][1] = sin(phi)*sin(theta)*cos(psi) - cos(phi)*sin(psi)
-        rbgPrime[1][2] = cos(phi)*sin(theta)*cos(psi) + sin(phi)*sin(psi)
 
-        return rbgPrime
 
     def predict(self, dt, i, pos):
-
         targetHeading = help_module.get_angle(pos["yaw"])
         targetCommandSpeedX = ((pos["controls"]["rv"]/660.0)*10)
         targetCommandSpeedY = ((pos["controls"]["rh"]/660.0)*10)
@@ -105,8 +92,8 @@ class Kalman:
         gPrime[0][3] = dt
         gPrime[1][4] = dt
         gPrime[2][5] = dt
-        gPrime[3][6] = math.tanh((targetCommandX - self.ekfState[3]) / 10)*dt
-        gPrime[4][6] = math.tanh((targetCommandY - self.ekfState[4]) / 10)*dt
+        gPrime[3][6] = math.tanh((targetCommandX - self.ekfState[3]) / 15)*dt
+        gPrime[4][6] = math.tanh((targetCommandY - self.ekfState[4]) / 15)*dt
         gPrime[5][6] = 0*dt
 
         self.ekfCov = np.add(gPrime @ (self.ekfCov @ np.transpose(gPrime)), self.Q)
@@ -118,7 +105,7 @@ class Kalman:
         predictedState[1] = predictedState[1] + self.ekfState[4] * dt
         predictedState[2] = predictedState[2] + self.ekfState[5] * dt
         if i != 0:
-            predictedState[3] = predictedState[3] + math.tanh((cX - predictedState[3])/5)*dt
+            predictedState[3] = predictedState[3] + math.tanh((cX - predictedState[3])/15)*dt
             predictedState[4] = predictedState[4] + math.tanh((cY - predictedState[4])/15)*dt
             predictedState[5] = predictedState[5]
 
@@ -176,7 +163,7 @@ y = [pos["y"] for pos in data][1:]
 vX = [pos["vX"] for pos in data][1:]
 vY = [pos["vY"] for pos in data][1:]
 
-data = help_module.get_noise(data, 20, 1)
+data = help_module.get_noise(data, 15, 1.0)
 
 
 for i, pos in enumerate(data):
@@ -184,7 +171,7 @@ for i, pos in enumerate(data):
         kalman.prevState = kalman.ekfState
 
         kalman.predict((data[i+1]["t"] - data[i]["t"])/1000, i, pos)
-
+        kalman.updateFromGPS(pos)
         xEst.append(kalman.ekfState[0])
         xZ.append(pos["x"] - data[0]["x"])
         yEst.append(kalman.ekfState[1])
@@ -194,7 +181,7 @@ for i, pos in enumerate(data):
         vyEst.append(kalman.ekfState[4])
         vyZ.append(pos["vY"])
         xx.append(pos["t"] - data[0]["t"])
-        kalman.updateFromGPS(pos)
+
 
 fig, axs = plt.subplots(2, 2)
 axs[0, 0].plot(xx, xEst, label='KF estimate')
