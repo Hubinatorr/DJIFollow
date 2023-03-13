@@ -13,7 +13,6 @@ import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import com.beust.klaxon.Klaxon
 import dji.common.flightcontroller.FlightControllerState
 import dji.common.flightcontroller.simulator.InitializationData
 import dji.common.flightcontroller.virtualstick.*
@@ -21,6 +20,9 @@ import dji.common.model.LocationCoordinate2D
 import dji.sdk.products.Aircraft
 import dji.thirdparty.org.java_websocket.client.WebSocketClient
 import dji.thirdparty.org.java_websocket.handshake.ServerHandshake
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromStream
 import java.net.URI
 import java.net.URISyntaxException
 import java.util.*
@@ -210,6 +212,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         }
     }
 
+    @OptIn(ExperimentalSerializationApi::class)
     override fun onClick(v: View?) {
         when (v?.id) {
             R.id.btn_enable_virtual_stick -> {
@@ -266,7 +269,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 }
             }
             R.id.btn_load -> {
-                droneManager.targets = Klaxon().parseArray(resources.openRawResource(R.raw.normal))!!
+                droneManager.targets = Json.decodeFromStream<List<DroneData>>(resources.openRawResource(R.raw.normal))
             }
             R.id.btn_start_mission -> {
                 schedule()

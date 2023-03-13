@@ -87,8 +87,8 @@ class PID {
 
     fun computeWithCommand(drone: DroneData, target: DroneData) {
         var targetHeading = Angle(target.yaw).value
-        var targetCommandSpeedX = ((target.controls.rv/660.0)*10)
-        var targetCommandSpeedY = ((target.controls.rh/660.0)*10)
+        var targetCommandSpeedX = ((target.rv/660.0)*10)
+        var targetCommandSpeedY = ((target.rh/660.0)*10)
 
         var xX = targetCommandSpeedX * cos(Math.toRadians(targetHeading))
         var yX = targetCommandSpeedX * sin(Math.toRadians(targetHeading))

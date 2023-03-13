@@ -1,9 +1,10 @@
 package com.riis.kotlin_simulatordemo
 
 import android.util.Log
-import com.beust.klaxon.Klaxon
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
 import dji.common.flightcontroller.virtualstick.FlightControlData
-import dji.midware.data.model.P3.DataFlycUploadWayPointMissionMsg.FINISH_ACTION
 import dji.sdk.flightcontroller.FlightController
 import dji.thirdparty.org.java_websocket.client.WebSocketClient
 import java.util.*
@@ -32,7 +33,7 @@ class DroneManager {
     var t0 = 0L
     fun onStateChange() {
         if (record) {
-            webSocketClient.send(Klaxon().toJsonString(getDroneState("t")))
+            webSocketClient.send(Json.encodeToString(getDroneState("t")))
         }
     }
 
@@ -46,7 +47,7 @@ class DroneManager {
             drone.x = 0.0
             drone.y = 0.0
             drone.t = 0
-            webSocketClient.send(Klaxon().toJsonString(drone))
+            webSocketClient.send(Json.encodeToString(drone))
             record = true
         }
 
@@ -82,7 +83,10 @@ class DroneManager {
             controller.state.attitude.roll,
             controller.state.attitude.pitch,
             controller.state.attitude.yaw,
-            controls
+            controls.lh,
+            controls.lv,
+            controls.rh,
+            controls.rv
         )
     }
 }
