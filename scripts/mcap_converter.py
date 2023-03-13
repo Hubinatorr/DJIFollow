@@ -5,9 +5,7 @@ import sys
 
 from mcap.writer import Writer
 
-files = ["normalSim1", "normalSim2", "normalSim3", "normalTest1", "normalTest2"]
-
-with open('out.mcap', "wb") as f:
+with open('temp.mcap', "wb") as f:
     w = Writer(f)
     w.start("x-jsonschema", library="my-excellent-library")
 
@@ -20,50 +18,111 @@ with open('out.mcap', "wb") as f:
         data=schema,
     )
 
+    channel_id = w.register_channel(
+        topic="pathF",
+        message_encoding="json",
+        schema_id=schema_id,
+    )
+
+    data = json.load(open(Path(__file__).parent / "data/f.json", "rb"))
+    poses = []
+
+    for pos in data:
+        poses.append({
+            "position": {"x": float(pos['x']), "y": float(pos['y']), "z": float(pos['z'])},
+            "orientation": {"x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0},
+        })
+        m = {
+            "timestamp": {
+                "sec": int(pos["t"] / 1000),
+                "nsec": int(pos["t"] * 1e+6),
+            },
+            "frame_id": "follower",
+            "poses": poses
+        }
+        w.add_message(
+            channel_id,
+            log_time=int(pos["t"] * 1e+6),
+            data=json.dumps(m).encode("utf-8"),
+            publish_time=int(pos["t"] * 1e+6),
+        )
+    data = json.load(open(Path(__file__).parent / "data/t.json", "rb"))
+    poses = []
+
+    schema_id = w.register_schema(
+        name="foxglove.PosesInFrame",
+        encoding="jsonschema",
+        data=schema,
+    )
+
+    channel_id = w.register_channel(
+        topic="pathT",
+        message_encoding="json",
+        schema_id=schema_id,
+    )
+
+    for pos in data:
+        poses.append({
+            "position": {"x": float(pos['x']), "y": float(pos['y']), "z": float(pos['z'])},
+            "orientation": {"x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0},
+        })
+        m = {
+            "timestamp": {
+                "sec": int(pos["t"] / 1000),
+                "nsec": int(pos["t"] * 1e+6),
+            },
+            "frame_id": "target",
+            "poses": poses
+        }
+        w.add_message(
+            channel_id,
+            log_time=int(pos["t"] * 1e+6),
+            data=json.dumps(m).encode("utf-8"),
+            publish_time=int(pos["t"] * 1e+6),
+        )
+
     with open(Path(__file__).parent / "schemas/FrameTransform.json", "rb") as f:
         schema = f.read()
 
-    frame_schema_id = w.register_schema(
+    schema_id = w.register_schema(
         name="foxglove.FrameTransform",
         encoding="jsonschema",
         data=schema,
     )
 
-    frame_channel_id = w.register_channel(
+    channel_id = w.register_channel(
         topic="path",
         message_encoding="json",
         schema_id=schema_id,
     )
 
-    for i, file in files:
-        channel_id = w.register_channel(
-            topic=file,
-            message_encoding="json",
-            schema_id=schema_id,
-        )
-        path = "data/" + file + ".json"
-        data = json.load(open(Path(__file__).parent / path, "rb"))
-        poses = []
+    m = {
+        "timestamp": {
+            "sec": int(0),
+            "nsec": int(0),
+        },
+        "parent_frame_id": "target",
+        "child_frame_id": "follower",
+        "translation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0,
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0,
+            "w": 0.0
+        }
+    }
 
-        for pos in data:
-            poses.append({
-                "position": {"x": float(pos['x']), "y": float(pos['y']), "z": float(pos['z'])},
-                "orientation": {"x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0},
-            })
-            m = {
-                "timestamp": {
-                    "sec": int(pos["t"] / 1000),
-                    "nsec": int(pos["t"] * 1e+6),
-                },
-                "frame_id": file,
-                "poses": poses
-            }
-            w.add_message(
-                channel_id,
-                log_time=int(pos["t"] * 1e+6),
-                data=json.dumps(m).encode("utf-8"),
-                publish_time=int(pos["t"] * 1e+6),
-            )
+    w.add_message(
+        channel_id,
+        log_time=int(0),
+        data=json.dumps(m).encode("utf-8"),
+        publish_time=int(0),
+    )
+
     w.finish()
 
 

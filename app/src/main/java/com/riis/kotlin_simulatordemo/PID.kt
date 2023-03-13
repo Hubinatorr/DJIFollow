@@ -9,7 +9,7 @@ class PID {
 
     private var Kd = 1.47
 
-    private var Ki = 1.176
+    private var Ki = 0.0
 
     // Position Error
     private var eX = 0.0

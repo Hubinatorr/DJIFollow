@@ -44,11 +44,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
     private var droneManager = DroneManager()
 
-    private var interval: Long = 100
+    private var interval: Long = 40
 
     companion object {
-        const val DEBUG = "PrintDebug"
-        const val RECORD = "PrintRecord"
+        const val DEBUG = "drone_debug"
+        const val RECORD = "drone_record"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -266,7 +266,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 }
             }
             R.id.btn_load -> {
-                val droneData = Klaxon().parseArray<DroneData>(resources.openRawResource(R.raw.normal))!!
+                droneManager.targets = Klaxon().parseArray(resources.openRawResource(R.raw.normal))!!
             }
             R.id.btn_start_mission -> {
                 schedule()
@@ -330,7 +330,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
     inner class SendVirtualStickDataTask : TimerTask() {
         override fun run() {
-            droneManager.calculateFollowData()
+            if (droneManager.i < droneManager.targets.size) {
+                droneManager.calculateFollowData()
+            } else {
+                mSendVirtualStickDataTask?.cancel()
+                droneManager.i = 0
+            }
+
         }
     }
     fun onReturn(view: View) {

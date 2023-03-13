@@ -3,6 +3,7 @@ package com.riis.kotlin_simulatordemo
 import android.util.Log
 import com.beust.klaxon.Klaxon
 import dji.common.flightcontroller.virtualstick.FlightControlData
+import dji.midware.data.model.P3.DataFlycUploadWayPointMissionMsg.FINISH_ACTION
 import dji.sdk.flightcontroller.FlightController
 import dji.thirdparty.org.java_websocket.client.WebSocketClient
 import java.util.*
@@ -16,14 +17,14 @@ class DroneManager {
     lateinit var webSocketClient: WebSocketClient
     var controls = Controls(0,0,0,0)
 
-    private var i = 0
+    var i = 0
 
     var record = false;
 
     var mRoll = 0f
     var mPitch = 0f
     var mYaw = 0f
-    var mThrottle =0f
+    var mThrottle =1f
 
 
     var x0 = 0.0
@@ -37,6 +38,7 @@ class DroneManager {
 
     fun calculateFollowData() {
         val drone = getDroneState("f")
+
         if (i == 0) {
             x0 = drone.x
             y0 = drone.y
@@ -44,15 +46,15 @@ class DroneManager {
             drone.x = 0.0
             drone.y = 0.0
             drone.t = 0
+            webSocketClient.send(Klaxon().toJsonString(drone))
+            record = true
         }
 
-        if (i < targets.size) {
+        if (targets[i].t < (System.currentTimeMillis() - t0)) {
             pidController.compute(drone, targets[i])
-
-            webSocketClient.send(Klaxon().toJsonString(drone))
             mRoll = pidController.Vx.coerceIn(-10.0, 10.0).toFloat()
             mPitch = pidController.Vy.coerceIn(-10.0, 10.0).toFloat()
-            mThrottle = 0f
+            mThrottle = drone.z.toFloat()
             i++
         }
 
@@ -64,9 +66,6 @@ class DroneManager {
             }
         }
 
-    }
-    companion object {
-        const val DEBUG = "drone"
     }
 
     private fun getDroneState(name: String) : DroneData
