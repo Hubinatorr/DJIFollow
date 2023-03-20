@@ -1,50 +1,116 @@
 import json
 from pathlib import Path
-
+from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 import numpy as np
 
-
 # Create figure
 fig = go.Figure()
+
 path = "resultData/normal.json"
-follower = json.load(open(Path(__file__).parent / "resultData/outside.json", "r"))
-target = json.load(open(Path(__file__).parent / "resultData/outt.json", "r"))
+follower = json.load(open(Path(__file__).parent / "testData/outside.json", "r"))
+target = json.load(open(Path(__file__).parent / "testData/outside.json", "r"))
+
+fig = make_subplots(
+    rows=3, cols=2,
+    subplot_titles=("X", "VX", "Y", "VY", "Z", "VZ")
+)
+
+fig.add_trace(
+    go.Scatter(x=[p["t"] for p in follower],
+               y=[p["x"] for p in follower],
+               mode='lines+markers',
+               name='follower'),
+    row=1, col=1
+)
+fig.add_trace(
+    go.Scatter(x=[p["t"] for p in target],
+               y=[p["x"] for p in target],
+               mode='lines+markers',
+               name='target'),
+    row=1, col=1
+)
+
+fig.add_trace(
+    go.Scatter(x=[p["t"] for p in follower],
+               y=[p["y"] for p in follower],
+               mode='lines+markers',
+               name='follower'),
+    row=2, col=1
+)
+
+fig.add_trace(
+    go.Scatter(x=[p["t"] for p in target],
+               y=[p["y"] for p in target],
+               mode='lines+markers',
+               name='target'),
+    row=2, col=1
+)
 
 
-# Create traces
-fig.add_trace(go.Scatter(x=[p["t"] for p in follower], y=[p["y"] for p in follower],
-                         mode='lines+markers',
-                         name='follower'))
-fig.add_trace(go.Scatter(x=[p["t"] for p in target], y=[p["y"] for p in target],
-                         mode='lines+markers',
-                         name='target'))
+fig.add_trace(
+    go.Scatter(x=[p["t"] for p in follower],
+               y=[p["z"] for p in follower],
+               mode='lines+markers',
+               name='follower'),
+    row=3, col=1
+)
+
+fig.add_trace(
+    go.Scatter(x=[p["t"] for p in target],
+               y=[p["z"] for p in target],
+               mode='lines+markers',
+               name='target'),
+    row=3, col=1
+)
+
+fig.add_trace(
+    go.Scatter(x=[p["t"] for p in follower],
+               y=[p["vX"] for p in follower],
+               mode='lines+markers',
+               name='follower'),
+    row=1, col=2
+)
+fig.add_trace(
+    go.Scatter(x=[p["t"] for p in target],
+               y=[p["vX"] for p in target],
+               mode='lines+markers',
+               name='target'),
+    row=1, col=2
+)
+
+fig.add_trace(
+    go.Scatter(x=[p["t"] for p in follower],
+               y=[p["vY"] for p in follower],
+               mode='lines+markers',
+               name='follower'),
+    row=2, col=2
+)
+
+fig.add_trace(
+    go.Scatter(x=[p["t"] for p in target],
+               y=[p["vY"] for p in target],
+               mode='lines+markers',
+               name='target'),
+    row=2, col=2
+)
+
+
+fig.add_trace(
+    go.Scatter(x=[p["t"] for p in follower],
+               y=[p["vZ"] for p in follower],
+               mode='lines+markers',
+               name='follower'),
+    row=3, col=2
+)
+
+fig.add_trace(
+    go.Scatter(x=[p["t"] for p in target],
+               y=[p["vZ"] for p in target],
+               mode='lines+markers',
+               name='target'),
+    row=3, col=2
+)
+
 fig.show()
 
-
-# Make 10th trace visible
-# fig.data[10].visible = True
-
-# # Create and add slider
-# steps = []
-# for i in range(len(fig.data)):
-#     step = dict(
-#         method="update",
-#         args=[{"visible": [False] * len(fig.data)},
-#               {"title": "Slider switched to step: " + str(i)}],  # layout attribute
-#     )
-#     step["args"][0]["visible"][i] = True  # Toggle i'th trace to "visible"
-#     steps.append(step)
-#
-# sliders = [dict(
-#     active=10,
-#     currentvalue={"prefix": "Frequency: "},
-#     pad={"t": 50},
-#     steps=steps
-# )]
-#
-# fig.update_layout(
-#     sliders=sliders
-# )
-
-fig.show()

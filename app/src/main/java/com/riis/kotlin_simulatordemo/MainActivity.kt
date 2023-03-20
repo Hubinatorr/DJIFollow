@@ -98,12 +98,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             }
 
             override fun onMessage(s: String) {
+                Log.i(DEBUG, "message: $s")
                 try {
                     val droneData = Json.decodeFromString<DroneData>(s)
                     droneManager.target = droneData
-                    showToast("target updated")
-                } catch (_: SerializationException) {
-                    showToast("Pica")
+                    Log.i(DEBUG, "podarilo sa")
+                } catch (e: Exception) {
+                    Log.i(DEBUG, e.message.toString())
                 }
             }
 
@@ -143,7 +144,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                     if ((it as Aircraft?)?.remoteController != null && it.remoteController.isConnected) {
                         mConnectStatusTextView.text = "only RC Connected"
                         ret = true
-                    } else {}
+                    } else {
+                    }
                 }
             }
 
@@ -189,12 +191,16 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 interval = mFrequencyText.text.toString().toLongOrNull()!!
             }
 
-            override fun beforeTextChanged(s: CharSequence, start: Int,
-                                           count: Int, after: Int) {
+            override fun beforeTextChanged(
+                s: CharSequence, start: Int,
+                count: Int, after: Int
+            ) {
             }
 
-            override fun onTextChanged(s: CharSequence, start: Int,
-                                       before: Int, count: Int) {
+            override fun onTextChanged(
+                s: CharSequence, start: Int,
+                before: Int, count: Int
+            ) {
             }
         })
     }
@@ -206,7 +212,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             it.yawControlMode = YawControlMode.ANGULAR_VELOCITY
             it.verticalControlMode = VerticalControlMode.VELOCITY
             it.rollPitchCoordinateSystem = FlightCoordinateSystem.GROUND
-            val callback= FlightControllerState.Callback {
+            val callback = FlightControllerState.Callback {
                 droneManager.onStateChange()
             }
             it.setStateCallback(callback)
@@ -272,12 +278,26 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             }
             R.id.btn_load -> {
                 showToast("Loading")
-                Log.i(DEBUG, "Loading")
+                Json.decodeFromString<DroneData>("{\n" +
+                        "    \"lh\": 0,\n" +
+                        "    \"lv\": 0,\n" +
+                        "    \"rh\": 0,\n" +
+                        "    \"rv\": 428,\n" +
+                        "    \"id\": \"changeSpeed\",\n" +
+                        "    \"pitch\": -7.0,\n" +
+                        "    \"roll\": 0.0,\n" +
+                        "    \"t\": 1378,\n" +
+                        "    \"vX\": 0.10000000149011612,\n" +
+                        "    \"vY\": 0.0,\n" +
+                        "    \"vZ\": 0.0,\n" +
+                        "    \"x\": 0.010000000707805157,\n" +
+                        "    \"y\": 0.0,\n" +
+                        "    \"yaw\": 1.5,\n" +
+                        "    \"z\": 0.0\n" +
+                        "  }")
+
                 droneManager.targets = Json.decodeFromStream(resources.openRawResource(R.raw.all))
                 showToast("Loaded")
-                Log.i(DEBUG, "Loaded")
-                Log.i(DEBUG, droneManager.targets.size.toString())
-                Log.i(DEBUG, droneManager.targets[0].id + ", " + droneManager.targets[1].id)
             }
             R.id.btn_start_mission -> {
                 schedule()
@@ -294,8 +314,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             }
         }
     }
-    private fun schedule()
-    {
+
+    private fun schedule() {
         if (mSendVirtualStickDataTimer == null) {
             mSendVirtualStickDataTask = SendVirtualStickDataTask()
             mSendVirtualStickDataTimer = Timer()
@@ -303,8 +323,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         }
     }
 
-    private fun startSimulation()
-    {
+    private fun startSimulation() {
         viewModel.getFlightController()?.simulator?.start(
             InitializationData.createInstance(
                 LocationCoordinate2D(49.2, 16.6), 10, 10
@@ -314,14 +333,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 Log.i(DEBUG, djiError.description)
                 showToast("Simulator Error: ${djiError.description}")
             } else {
-                Log.i(DEBUG,"Start Simulator Success")
+                Log.i(DEBUG, "Start Simulator Success")
                 showToast("Start Simulator Success")
             }
         }
     }
-    fun restartSimulation()
-    {
-        if(viewModel.getFlightController() == null) {
+
+    fun restartSimulation() {
+        if (viewModel.getFlightController() == null) {
             Log.i(DEBUG, "isFlightController Null")
         }
         mSendVirtualStickDataTimer?.purge()
@@ -331,7 +350,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 Log.i(DEBUG, djiError.description)
                 showToast("Simulator Error: ${djiError.description}")
             } else {
-                Log.i(DEBUG,"Stop Simulator Success")
+                Log.i(DEBUG, "Stop Simulator Success")
                 showToast("Stop Simulator Success")
             }
         }
@@ -350,6 +369,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
         }
     }
+
     fun onReturn(view: View) {
         this.finish()
     }
