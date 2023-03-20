@@ -21,10 +21,8 @@ import dji.sdk.products.Aircraft
 import dji.thirdparty.org.java_websocket.client.WebSocketClient
 import dji.thirdparty.org.java_websocket.handshake.ServerHandshake
 import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.decodeFromStream
 import java.net.URI
 import java.net.URISyntaxException
 import java.util.*
@@ -82,7 +80,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         createWebSocketClient()
         initObservers()
         initUi()
-
     }
 
     private fun createWebSocketClient() {
@@ -98,11 +95,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             }
 
             override fun onMessage(s: String) {
-                Log.i(DEBUG, "message: $s")
                 try {
                     val droneData = Json.decodeFromString<DroneData>(s)
                     droneManager.target = droneData
-                    Log.i(DEBUG, "podarilo sa")
                 } catch (e: Exception) {
                     Log.i(DEBUG, e.message.toString())
                 }
@@ -145,6 +140,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                         mConnectStatusTextView.text = "only RC Connected"
                         ret = true
                     } else {
+
                     }
                 }
             }
@@ -205,7 +201,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         })
     }
 
-    private var prevT = 0L
     private fun initFlightController() {
         viewModel.getFlightController()?.let {
             it.rollPitchControlMode = RollPitchControlMode.VELOCITY
@@ -278,29 +273,15 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             }
             R.id.btn_load -> {
                 showToast("Loading")
-                Json.decodeFromString<DroneData>("{\n" +
-                        "    \"lh\": 0,\n" +
-                        "    \"lv\": 0,\n" +
-                        "    \"rh\": 0,\n" +
-                        "    \"rv\": 428,\n" +
-                        "    \"id\": \"changeSpeed\",\n" +
-                        "    \"pitch\": -7.0,\n" +
-                        "    \"roll\": 0.0,\n" +
-                        "    \"t\": 1378,\n" +
-                        "    \"vX\": 0.10000000149011612,\n" +
-                        "    \"vY\": 0.0,\n" +
-                        "    \"vZ\": 0.0,\n" +
-                        "    \"x\": 0.010000000707805157,\n" +
-                        "    \"y\": 0.0,\n" +
-                        "    \"yaw\": 1.5,\n" +
-                        "    \"z\": 0.0\n" +
-                        "  }")
-
-                droneManager.targets = Json.decodeFromStream(resources.openRawResource(R.raw.all))
+                droneManager.tests.init(resources)
                 showToast("Loaded")
             }
             R.id.btn_start_mission -> {
-                schedule()
+                if (mSendVirtualStickDataTimer == null) {
+                    mSendVirtualStickDataTask = SendVirtualStickDataTask()
+                    mSendVirtualStickDataTimer = Timer()
+                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, interval)
+                }
             }
             R.id.btn_start_simulation -> {
                 startSimulation()
@@ -312,14 +293,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 else
                     showToast("Stop Record")
             }
-        }
-    }
-
-    private fun schedule() {
-        if (mSendVirtualStickDataTimer == null) {
-            mSendVirtualStickDataTask = SendVirtualStickDataTask()
-            mSendVirtualStickDataTimer = Timer()
-            mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, interval)
         }
     }
 
@@ -360,12 +333,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
     inner class SendVirtualStickDataTask : TimerTask() {
         override fun run() {
-            if (droneManager.i < droneManager.targets.size) {
-                droneManager.calculateFollowData()
-            } else {
-                mSendVirtualStickDataTask?.cancel()
-                droneManager.i = 0
-            }
+            droneManager.calculateFollowData()
 
         }
     }

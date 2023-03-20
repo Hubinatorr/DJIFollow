@@ -4,113 +4,32 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 import numpy as np
 
-# Create figure
-fig = go.Figure()
+follower_data = json.load(open(Path(__file__).parent / "resultData/test_2.0_1.47.json", "r"))
 
-path = "resultData/normal.json"
-follower = json.load(open(Path(__file__).parent / "testData/outside.json", "r"))
-target = json.load(open(Path(__file__).parent / "testData/outside.json", "r"))
-
-fig = make_subplots(
-    rows=3, cols=2,
-    subplot_titles=("X", "VX", "Y", "VY", "Z", "VZ")
-)
-
-fig.add_trace(
-    go.Scatter(x=[p["t"] for p in follower],
-               y=[p["x"] for p in follower],
-               mode='lines+markers',
-               name='follower'),
-    row=1, col=1
-)
-fig.add_trace(
-    go.Scatter(x=[p["t"] for p in target],
-               y=[p["x"] for p in target],
-               mode='lines+markers',
-               name='target'),
-    row=1, col=1
-)
-
-fig.add_trace(
-    go.Scatter(x=[p["t"] for p in follower],
-               y=[p["y"] for p in follower],
-               mode='lines+markers',
-               name='follower'),
-    row=2, col=1
-)
-
-fig.add_trace(
-    go.Scatter(x=[p["t"] for p in target],
-               y=[p["y"] for p in target],
-               mode='lines+markers',
-               name='target'),
-    row=2, col=1
-)
+def add_trace(fig, x, y, row, col, name):
+    fig.add_trace(go.Scatter(x=x, y=y, mode='lines+markers', name=name), row=row, col=col)
 
 
-fig.add_trace(
-    go.Scatter(x=[p["t"] for p in follower],
-               y=[p["z"] for p in follower],
-               mode='lines+markers',
-               name='follower'),
-    row=3, col=1
-)
+def create_plot(tests):
+    for i, test in enumerate(tests):
+        fig = make_subplots(rows=2, cols=1, subplot_titles=(test+ "x", test+ "y"))
+        target = json.load(open(Path(__file__).parent / "testData/{}.json".format(test), "r"))
+        follower = [p for p in follower_data if p["id"] == test]
+        add_trace(fig, [p["t"] for p in target],    [p["x"] for p in target],   1, 1, "targetX")
+        add_trace(fig, [p["t"] for p in follower],  [p["x"] for p in follower], 1, 1, "followerX")
 
-fig.add_trace(
-    go.Scatter(x=[p["t"] for p in target],
-               y=[p["z"] for p in target],
-               mode='lines+markers',
-               name='target'),
-    row=3, col=1
-)
+        add_trace(fig, [p["t"] for p in target],    [p["y"] for p in target],   2, 1, "targetY")
+        add_trace(fig, [p["t"] for p in follower],  [p["y"] for p in follower], 2, 1, "followerY")
+        fig.show()
 
-fig.add_trace(
-    go.Scatter(x=[p["t"] for p in follower],
-               y=[p["vX"] for p in follower],
-               mode='lines+markers',
-               name='follower'),
-    row=1, col=2
-)
-fig.add_trace(
-    go.Scatter(x=[p["t"] for p in target],
-               y=[p["vX"] for p in target],
-               mode='lines+markers',
-               name='target'),
-    row=1, col=2
-)
+tests = [
+    "circles",
+    "changeSpeed",
+    "full",
+    "normal"
+]
 
-fig.add_trace(
-    go.Scatter(x=[p["t"] for p in follower],
-               y=[p["vY"] for p in follower],
-               mode='lines+markers',
-               name='follower'),
-    row=2, col=2
-)
-
-fig.add_trace(
-    go.Scatter(x=[p["t"] for p in target],
-               y=[p["vY"] for p in target],
-               mode='lines+markers',
-               name='target'),
-    row=2, col=2
-)
+create_plot(tests)
 
 
-fig.add_trace(
-    go.Scatter(x=[p["t"] for p in follower],
-               y=[p["vZ"] for p in follower],
-               mode='lines+markers',
-               name='follower'),
-    row=3, col=2
-)
-
-fig.add_trace(
-    go.Scatter(x=[p["t"] for p in target],
-               y=[p["vZ"] for p in target],
-               mode='lines+markers',
-               name='target'),
-    row=3, col=2
-)
-
-fig.show()
 

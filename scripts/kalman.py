@@ -75,8 +75,8 @@ class Kalman:
 
     def predict(self, dt, i, pos):
         targetHeading = help_module.get_angle(pos["yaw"])
-        targetCommandSpeedX = ((pos["controls"]["rv"]/660.0)*10)
-        targetCommandSpeedY = ((pos["controls"]["rh"]/660.0)*10)
+        targetCommandSpeedX = ((pos["rv"]/660.0)*10)
+        targetCommandSpeedY = ((pos["rh"]/660.0)*10)
         xX = targetCommandSpeedX * cos(math.radians(targetHeading))
         yX = targetCommandSpeedX * sin(math.radians(targetHeading))
         xY = targetCommandSpeedY * cos(math.radians(targetHeading + 90))
@@ -169,7 +169,6 @@ data = help_module.get_noise(data, 15, 1.0)
 for i, pos in enumerate(data):
     if i < len(data) - 1:
         kalman.prevState = kalman.ekfState
-
         kalman.predict((data[i+1]["t"] - data[i]["t"])/1000, i, pos)
         kalman.updateFromGPS(pos)
         xEst.append(kalman.ekfState[0])

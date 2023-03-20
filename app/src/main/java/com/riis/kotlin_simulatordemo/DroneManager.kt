@@ -9,14 +9,17 @@ import dji.thirdparty.org.java_websocket.client.WebSocketClient
 import java.util.*
 
 class DroneManager {
-    var targets: List<DroneData> = LinkedList()
     var target: DroneData? = null
     private var pidController = PID()
 
     lateinit var controller: FlightController
     lateinit var webSocketClient: WebSocketClient
+
+    var tests = TestPipeline()
     var controls = Controls(0,0,0,0)
 
+    var testName = ""
+    var j = 0
     var i = 0
 
     var record = false;
@@ -26,50 +29,42 @@ class DroneManager {
     var mYaw = 0f
     var mThrottle =0f
 
-    var targetId = ""
-
     var x0 = 0.0
     var y0 = 0.0
     var t0 = 0L
     fun onStateChange() {
         if (record) {
-            webSocketClient.send(Json.encodeToString(getDroneState("t")))
+            webSocketClient.send(Json.encodeToString(getDroneState()))
         }
     }
 
-    var stop = false
     fun calculateFollowData() {
-        val drone = getDroneState("f")
-        if (target != null) {
-            pidController.compute(drone, target!!)
-            mRoll = pidController.Vx.coerceIn(-10.0, 10.0).toFloat()
-            mPitch = pidController.Vy.coerceIn(-10.0, 10.0).toFloat()
-        } else {
+        if (j == tests.all.size) {
+            return
+        }
+        Log.i(MainActivity.DEBUG, "i: $i, j: $j")
+
+        val drone = getDroneState()
+
+        if(j < tests.all.size && i < tests.all[j].size && tests.all[j][i].t < (System.currentTimeMillis() - t0)) {
+            pidController.compute(drone, tests.all[j][i])
+
+            mRoll = pidController.Vx.coerceIn(-15.0, 15.0).toFloat()
+            mPitch = pidController.Vy.coerceIn(-15.0, 15.0).toFloat()
+
+            i++
+        }
+
+        if (i == tests.all[j].size) {
+            record = false
             mRoll = 0f
             mPitch = 0f
+
+            if ((drone.vX + drone.vY) < 0.01) {
+                j++
+                i = 0
+            }
         }
-//        if (i == 0) {
-//            x0 = drone.x
-//            y0 = drone.y
-//            t0 = System.currentTimeMillis()
-//            drone.x = 0.0
-//            drone.y = 0.0
-//            drone.t = 0
-//            webSocketClient.send(Json.encodeToString(drone))
-//            record = true
-//        }
-
-
-//        if (targets[i].t < (System.currentTimeMillis() - t0) && i < targets.size) {
-//
-//
-//            i++
-//            if (i == targets.size) {
-//                mPitch = 0.0f
-//                mRoll = 0.0f
-//            }
-//        }
-
 
         controller.sendVirtualStickFlightControlData(
             FlightControlData(mPitch, mRoll, mYaw, mThrottle)
@@ -81,11 +76,17 @@ class DroneManager {
 
     }
 
-    private fun getDroneState(name: String) : DroneData
+    private fun getDroneState() : DroneData
     {
-        return DroneData(
+        if (i == 0) {
+            t0 = 0
+            x0 = 0.0
+            y0 = 0.0
+        }
+
+        val drone = DroneData(
             System.currentTimeMillis() - t0,
-            name,
+            testName,
             Deg2UTM(controller.state.aircraftLocation.latitude, controller.state.aircraftLocation.longitude).Northing - x0,
             Deg2UTM(controller.state.aircraftLocation.latitude, controller.state.aircraftLocation.longitude).Easting - y0,
             controller.state.aircraftLocation.altitude.toDouble(),
@@ -100,6 +101,23 @@ class DroneManager {
             controls.rh,
             controls.rv
         )
+
+        if (i == 0) {
+            x0 = drone.x
+            y0 = drone.y
+            t0 = System.currentTimeMillis()
+            testName = tests.all[j][i].id
+
+            drone.x = 0.0
+            drone.y = 0.0
+            drone.t = 0
+            drone.id = testName
+
+            webSocketClient.send(Json.encodeToString(drone))
+            record = true
+        }
+
+        return drone
     }
 }
 

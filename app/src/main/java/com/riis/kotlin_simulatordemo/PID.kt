@@ -83,8 +83,6 @@ class PID {
 
         if (i > 1) {
 //            tuneGains()
-            Log.i(MainActivity.DEBUG, "$Kpx $Kpy $Kpz")
-            Log.i(MainActivity.DEBUG, "$Kdx $Kdy $Kdz")
             iX += eX * deltaT
             iY += eY * deltaT
             iZ += eZ * deltaT
