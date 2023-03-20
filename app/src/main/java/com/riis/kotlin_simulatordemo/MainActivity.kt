@@ -21,6 +21,8 @@ import dji.sdk.products.Aircraft
 import dji.thirdparty.org.java_websocket.client.WebSocketClient
 import dji.thirdparty.org.java_websocket.handshake.ServerHandshake
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
 import java.net.URI
@@ -96,13 +98,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             }
 
             override fun onMessage(s: String) {
-//                val droneData = Klaxon().parse<DroneData>(s)
-//                if (droneData != null) {
-//                    droneManager.target = droneData
-//                    droneManager.followStage = FollowStage.READY
-//                } else {
-//                    Log.i(DEBUG, "Parse incorrect")
-//                }
+                try {
+                    val droneData = Json.decodeFromString<DroneData>(s)
+                    droneManager.target = droneData
+                    showToast("target updated")
+                } catch (_: SerializationException) {
+                    showToast("Pica")
+                }
             }
 
             override fun onClose(i: Int, s: String, b: Boolean) {
@@ -201,8 +203,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private fun initFlightController() {
         viewModel.getFlightController()?.let {
             it.rollPitchControlMode = RollPitchControlMode.VELOCITY
-            it.yawControlMode = YawControlMode.ANGLE
-            it.verticalControlMode = VerticalControlMode.POSITION
+            it.yawControlMode = YawControlMode.ANGULAR_VELOCITY
+            it.verticalControlMode = VerticalControlMode.VELOCITY
             it.rollPitchCoordinateSystem = FlightCoordinateSystem.GROUND
             val callback= FlightControllerState.Callback {
                 droneManager.onStateChange()
@@ -269,7 +271,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 }
             }
             R.id.btn_load -> {
-                droneManager.targets = Json.decodeFromStream<List<DroneData>>(resources.openRawResource(R.raw.normal))
+                showToast("Loading")
+                Log.i(DEBUG, "Loading")
+                droneManager.targets = Json.decodeFromStream(resources.openRawResource(R.raw.all))
+                showToast("Loaded")
+                Log.i(DEBUG, "Loaded")
+                Log.i(DEBUG, droneManager.targets.size.toString())
+                Log.i(DEBUG, droneManager.targets[0].id + ", " + droneManager.targets[1].id)
             }
             R.id.btn_start_mission -> {
                 schedule()
@@ -314,7 +322,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     fun restartSimulation()
     {
         if(viewModel.getFlightController() == null) {
-            Log.i(DEBUG, "isFlightController Null ")
+            Log.i(DEBUG, "isFlightController Null")
         }
         mSendVirtualStickDataTimer?.purge()
 

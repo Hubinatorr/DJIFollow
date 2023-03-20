@@ -8,15 +8,15 @@ import numpy as np
 # Create figure
 fig = go.Figure()
 path = "resultData/normal.json"
-follower = json.load(open(Path(__file__).parent / "resultData/t1.json", "r"))
-target = json.load(open(Path(__file__).parent / "testData/normal.json", "r"))
+follower = json.load(open(Path(__file__).parent / "resultData/outside.json", "r"))
+target = json.load(open(Path(__file__).parent / "resultData/outt.json", "r"))
 
 
 # Create traces
-fig.add_trace(go.Scatter(x=[p["t"] for p in follower], y=[p["x"] for p in follower],
+fig.add_trace(go.Scatter(x=[p["t"] for p in follower], y=[p["y"] for p in follower],
                          mode='lines+markers',
                          name='follower'))
-fig.add_trace(go.Scatter(x=[p["t"] for p in target], y=[p["x"] for p in target],
+fig.add_trace(go.Scatter(x=[p["t"] for p in target], y=[p["y"] for p in target],
                          mode='lines+markers',
                          name='target'))
 fig.show()

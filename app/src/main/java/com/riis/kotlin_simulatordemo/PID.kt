@@ -1,6 +1,9 @@
 package com.riis.kotlin_simulatordemo
 
+import android.util.Log
 import kotlin.math.cos
+import kotlin.math.max
+import kotlin.math.pow
 import kotlin.math.sin
 
 class PID {
@@ -11,15 +14,36 @@ class PID {
 
     private var Ki = 0.0
 
+    private var Kpx = 2.0
+    private var Kpy = 2.0
+    private var Kpz = 2.0
+
+    private var Kdx = 1.47
+    private var Kdy = 1.47
+    private var Kdz = 1.47
+
+    private var Kix = 0.0
+    private var Kiy = 0.0
+    private var Kiz = 0.0
+
     // Position Error
     private var eX = 0.0
     private var eY = 0.0
     private var eZ = 0.0
 
+    private var eXfull = 0.0
+    private var eYfull = 0.0
+    private var eZfull = 0.0
+
+
     // Velocity Error
     private var veX = 0.0
     private var veY = 0.0
     private var veZ = 0.0
+
+    private var veXfull = 0.0
+    private var veYfull = 0.0
+    private var veZfull = 0.0
 
     // Internal Term
     private var iX = 0.0
@@ -28,7 +52,7 @@ class PID {
 
     // Previous Position Error
     private var eXprev = 0.0
-    private var eYprev = 0.0
+    private var eYprev = 1.0
     private var eZprev = 0.0
 
     // Output Velocity
@@ -42,8 +66,9 @@ class PID {
 
     private var prevTimestamp: Long = 0
 
-    private var learningRate = 0.1
+    private var gamma = 0.01
 
+    private var i = 1
     fun compute(drone: DroneData, target: DroneData) {
         val currentTimestamp = System.currentTimeMillis()
         val deltaT = (currentTimestamp - prevTimestamp) / 1000.0
@@ -56,15 +81,26 @@ class PID {
         veY = target.vY - drone.vY
         veZ = target.vZ - drone.vZ
 
-        if (prevTimestamp != 0L) {
+        if (i > 1) {
+//            tuneGains()
+            Log.i(MainActivity.DEBUG, "$Kpx $Kpy $Kpz")
+            Log.i(MainActivity.DEBUG, "$Kdx $Kdy $Kdz")
             iX += eX * deltaT
             iY += eY * deltaT
             iZ += eZ * deltaT
         }
 
-        Vx = Kp * eX /**/ + Ki * iX /**/ + Kd * veX
-        Vy = Kp * eY /**/ + Ki * iY /**/ + Kd * veY
-        Vz = Kp * eZ /**/ + Ki * iZ /**/ + Kd * veZ
+        eXfull += eX.pow(2)
+        eYfull += eY.pow(2)
+        eZfull += eZ.pow(2)
+
+        veXfull += veXfull.pow(2)
+        veYfull += veYfull.pow(2)
+        veZfull += veZfull.pow(2)
+
+        Vx = Kpx * eX /**/ + Kix * iX /**/ + Kdx * veX
+        Vy = Kpy * eY /**/ + Kiy * iY /**/ + Kdy * veY
+        Vz = Kpz * eZ /**/ + Kiz * iZ /**/ + Kdz * veZ
 
         val saturationX = (Vx > 10.0 || Vx < -10.0)
         val saturationY = (Vy > 10.0 || Vy < -10.0)
@@ -83,6 +119,25 @@ class PID {
         eZprev = eZ
 
         prevTimestamp = currentTimestamp
+        i++
+    }
+
+    fun tuneGains() {
+        val gpX = ((eXfull + eX.pow(2)) / i - (eXfull / (i - 1))) / 0.01
+        val gpY = ((eYfull + eY.pow(2)) / i - (eYfull / (i - 1))) / 0.01
+        val gpZ = ((eZfull + eZ.pow(2)) / i - (eZfull / (i - 1))) / 0.01
+
+        val gdX = ((veXfull + veX.pow(2)) / i - (veXfull / (i - 1))) / 0.01
+        val gdY = ((veYfull + veY.pow(2)) / i - (veYfull / (i - 1))) / 0.01
+        val gdZ = ((veZfull + veZ.pow(2)) / i - (veZfull / (i - 1))) / 0.01
+
+        Kpx = max(Kpx - (gamma * gpX), 0.0)
+        Kpy = max(Kpy - (gamma * gpY), 0.0)
+        Kpz = max(Kpz - (gamma * gpZ), 0.0)
+
+        Kdx = max(Kdx - (gamma * gdX), 0.0)
+        Kdy = max(Kdy - (gamma * gdY), 0.0)
+        Kdz = max(Kdz - (gamma * gdZ), 0.0)
     }
 
     fun computeWithCommand(drone: DroneData, target: DroneData) {
@@ -100,45 +155,5 @@ class PID {
         var targetCommandY = yX + yY
     }
 
-    private var Kpx = 2.0
-    private var Kpy = 2.0
-    private var Kpz = 2.0
-
-    private var Kdx = 1.0
-    private var Kdy = 1.0
-    private var Kdz = 1.0
-
-    private var Kix = 0.0
-    private var Kiy = 0.0
-    private var Kiz = 0.0
-
     private lateinit var prevDrone: DroneData
-
-    fun gradientDescendK(drone: DroneData) {
-
-        val ux = (Kpx * eX + Kix * iX + Kdx * veX - Vx)
-        val uy = (Kpy * eY + Kiy * iY + Kdy * veY - Vy)
-        val uz = (Kpz * eZ + Kiz * iZ + Kdz * veZ - Vz)
-
-        if (ux != 0.0) {
-            val diffX = drone.x - prevDrone.x
-            Kpx -= learningRate * -eX * (diffX / ux) * eX
-            Kdx -= learningRate * -eX * (diffX / ux) * veX
-            Kix -= learningRate * -eX * (diffX / ux) * iX
-        }
-
-        if (uy != 0.0) {
-            val diffY = drone.y - prevDrone.y
-            Kpy -= learningRate * -eY * (diffY / uy) * eY
-            Kdy -= learningRate * -eY * (diffY / uy) * veY
-            Kiy -= learningRate * -eY * (diffY / uy) * iY
-        }
-
-        if (uz != 0.0) {
-            val diffZ = drone.z - prevDrone.z
-            Kpz -= learningRate * -eZ * (diffZ / uz) * eZ
-            Kdz -= learningRate * -eZ * (diffZ / uz) * veZ
-            Kiz -= learningRate * -eZ * (diffZ / uz) * iZ
-        }
-    }
 }

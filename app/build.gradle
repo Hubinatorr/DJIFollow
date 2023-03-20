@@ -83,8 +83,6 @@ dependencies {
     implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.2.0'
     implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.2.0'
     implementation 'dev.romainguy:kotlin-math:1.5.3'
-    implementation "androidx.room:room-runtime:2.2.4"
-    implementation "androidx.room:room-ktx:2.2.5"
     implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.0"
     // DJI
     implementation('com.dji:dji-sdk:4.14.1')

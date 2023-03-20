@@ -1,7 +1,6 @@
 package com.riis.kotlin_simulatordemo
 
 import android.util.Log
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
 import dji.common.flightcontroller.virtualstick.FlightControlData
@@ -11,7 +10,7 @@ import java.util.*
 
 class DroneManager {
     var targets: List<DroneData> = LinkedList()
-
+    var target: DroneData? = null
     private var pidController = PID()
 
     lateinit var controller: FlightController
@@ -25,8 +24,9 @@ class DroneManager {
     var mRoll = 0f
     var mPitch = 0f
     var mYaw = 0f
-    var mThrottle =1f
+    var mThrottle =0f
 
+    var targetId = ""
 
     var x0 = 0.0
     var y0 = 0.0
@@ -37,27 +37,39 @@ class DroneManager {
         }
     }
 
+    var stop = false
     fun calculateFollowData() {
         val drone = getDroneState("f")
-
-        if (i == 0) {
-            x0 = drone.x
-            y0 = drone.y
-            t0 = System.currentTimeMillis()
-            drone.x = 0.0
-            drone.y = 0.0
-            drone.t = 0
-            webSocketClient.send(Json.encodeToString(drone))
-            record = true
-        }
-
-        if (targets[i].t < (System.currentTimeMillis() - t0)) {
-            pidController.compute(drone, targets[i])
+        if (target != null) {
+            pidController.compute(drone, target!!)
             mRoll = pidController.Vx.coerceIn(-10.0, 10.0).toFloat()
             mPitch = pidController.Vy.coerceIn(-10.0, 10.0).toFloat()
-            mThrottle = drone.z.toFloat()
-            i++
+        } else {
+            mRoll = 0f
+            mPitch = 0f
         }
+//        if (i == 0) {
+//            x0 = drone.x
+//            y0 = drone.y
+//            t0 = System.currentTimeMillis()
+//            drone.x = 0.0
+//            drone.y = 0.0
+//            drone.t = 0
+//            webSocketClient.send(Json.encodeToString(drone))
+//            record = true
+//        }
+
+
+//        if (targets[i].t < (System.currentTimeMillis() - t0) && i < targets.size) {
+//
+//
+//            i++
+//            if (i == targets.size) {
+//                mPitch = 0.0f
+//                mRoll = 0.0f
+//            }
+//        }
+
 
         controller.sendVirtualStickFlightControlData(
             FlightControlData(mPitch, mRoll, mYaw, mThrottle)
