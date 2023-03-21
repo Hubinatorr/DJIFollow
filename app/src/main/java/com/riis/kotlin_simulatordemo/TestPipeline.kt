@@ -21,6 +21,8 @@ class TestPipeline {
 
     var all: MutableList<List<DroneData>> = LinkedList()
 
+    var gains: MutableList<List<Double>> = LinkedList()
+
     @OptIn(ExperimentalSerializationApi::class)
     fun init(resources: Resources) {
         change_speed = Json.decodeFromStream(resources.openRawResource(R.raw.change_speed))
@@ -33,16 +35,18 @@ class TestPipeline {
         normal_turn = Json.decodeFromStream(resources.openRawResource(R.raw.normal_turn))
         normal_up = Json.decodeFromStream(resources.openRawResource(R.raw.normal_up))
         outside = Json.decodeFromStream(resources.openRawResource(R.raw.outside))
+//        all.add(change_speed)
+//        all.add(cirles_turn)
+//        all.add(full_turn)
+//        all.add(full_zig_zag)
+//        all.add(normal_turn)
+//        all.add(normal_up)
+//        all.add(outside)
+        gains.add(listOf(2.0, 1.8, 0.0))
 
-        all.add(change_speed)
-        all.add(circles)
-        all.add(cirles_turn)
-        all.add(full)
-        all.add(full_turn)
-        all.add(full_zig_zag)
         all.add(normal)
-        all.add(normal_turn)
-        all.add(normal_up)
-        all.add(outside)
+//        all.add(full)
+//        all.add(circles)
+
     }
 }

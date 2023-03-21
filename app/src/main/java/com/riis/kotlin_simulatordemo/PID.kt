@@ -8,11 +8,11 @@ import kotlin.math.sin
 
 class PID {
     // Gains
-    private var Kp = 2.0
+    var Kp = 2.0
 
-    private var Kd = 1.47
+    var Kd = 1.5
 
-    private var Ki = 0.0
+    var Ki = 0.0
 
     private var Kpx = 2.0
     private var Kpy = 2.0
@@ -22,9 +22,9 @@ class PID {
     private var Kdy = 1.47
     private var Kdz = 1.47
 
-    private var Kix = 0.0
-    private var Kiy = 0.0
-    private var Kiz = 0.0
+    private var Kix = 0.4
+    private var Kiy = 0.4
+    private var Kiz = 0.4
 
     // Position Error
     private var eX = 0.0
@@ -82,10 +82,9 @@ class PID {
         veZ = target.vZ - drone.vZ
 
         if (i > 1) {
-//            tuneGains()
-            iX += eX * deltaT
-            iY += eY * deltaT
-            iZ += eZ * deltaT
+            iX += ((eX + eXprev)/2) * deltaT
+            iY += ((eY + eYprev)/2) * deltaT
+            iZ += ((eZ + eZprev)/2) * deltaT
         }
 
         eXfull += eX.pow(2)
@@ -96,13 +95,13 @@ class PID {
         veYfull += veYfull.pow(2)
         veZfull += veZfull.pow(2)
 
-        Vx = Kpx * eX /**/ + Kix * iX /**/ + Kdx * veX
-        Vy = Kpy * eY /**/ + Kiy * iY /**/ + Kdy * veY
-        Vz = Kpz * eZ /**/ + Kiz * iZ /**/ + Kdz * veZ
+        Vx = Kp * eX /**/ + Ki * iX /**/ + Kd * veX
+        Vy = Kp * eY /**/ + Ki * iY /**/ + Kd * veY
+        Vz = Kp * eZ /**/ + Ki * iZ /**/ + Kd * veZ
 
-        val saturationX = (Vx > 10.0 || Vx < -10.0)
-        val saturationY = (Vy > 10.0 || Vy < -10.0)
-        val saturationZ = (Vz > 10.0 || Vz < -10.0)
+        val saturationX = (Vx > 15.0 || Vx < -15.0)
+        val saturationY = (Vy > 15.0 || Vy < -15.0)
+        val saturationZ = (Vz > 15.0 || Vz < -15.0)
 
         val signX =((Vx * eX) > 0)
         val signY =((Vy * eY) > 0)
@@ -138,10 +137,13 @@ class PID {
         Kdz = max(Kdz - (gamma * gdZ), 0.0)
     }
 
+    var targetCommandX = 0.0
+    var targetCommandY = 0.0
+
     fun computeWithCommand(drone: DroneData, target: DroneData) {
         var targetHeading = Angle(target.yaw).value
-        var targetCommandSpeedX = ((target.rv/660.0)*10)
-        var targetCommandSpeedY = ((target.rh/660.0)*10)
+        var targetCommandSpeedX = ((target.rv/660.0)*15)
+        var targetCommandSpeedY = ((target.rh/660.0)*15)
 
         var xX = targetCommandSpeedX * cos(Math.toRadians(targetHeading))
         var yX = targetCommandSpeedX * sin(Math.toRadians(targetHeading))
@@ -149,8 +151,8 @@ class PID {
         var xY = targetCommandSpeedY * cos(Math.toRadians(targetHeading + 90))
         var yY = targetCommandSpeedY * sin(Math.toRadians(targetHeading + 90))
 
-        var targetCommandX = xX + xY
-        var targetCommandY = yX + yY
+        targetCommandX = xX + xY
+        targetCommandY = yX + yY
     }
 
     private lateinit var prevDrone: DroneData

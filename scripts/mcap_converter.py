@@ -24,7 +24,8 @@ with open('temp.mcap', "wb") as f:
         schema_id=schema_id,
     )
 
-    data = json.load(open(Path(__file__).parent / "data/f.json", "rb"))
+    data = json.load(open(Path(__file__).parent / "resultData/test_2.0_1.47.json", "rb"))
+    data = [p for p in data if p["id"] == "full"]
     poses = []
 
     for pos in data:
@@ -46,7 +47,7 @@ with open('temp.mcap', "wb") as f:
             data=json.dumps(m).encode("utf-8"),
             publish_time=int(pos["t"] * 1e+6),
         )
-    data = json.load(open(Path(__file__).parent / "data/t.json", "rb"))
+    data = json.load(open(Path(__file__).parent / "testData/full.json", "rb"))
     poses = []
 
     schema_id = w.register_schema(

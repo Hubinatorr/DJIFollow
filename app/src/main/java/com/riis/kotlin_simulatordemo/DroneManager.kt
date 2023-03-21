@@ -7,6 +7,7 @@ import dji.common.flightcontroller.virtualstick.FlightControlData
 import dji.sdk.flightcontroller.FlightController
 import dji.thirdparty.org.java_websocket.client.WebSocketClient
 import java.util.*
+import kotlin.math.tanh
 
 class DroneManager {
     var target: DroneData? = null
@@ -21,6 +22,7 @@ class DroneManager {
     var testName = ""
     var j = 0
     var i = 0
+    var k = 0
 
     var record = false;
 
@@ -39,18 +41,26 @@ class DroneManager {
     }
 
     fun calculateFollowData() {
-        if (j == tests.all.size) {
+        if (k == tests.gains.size) {
+            record = false
             return
         }
-        Log.i(MainActivity.DEBUG, "i: $i, j: $j")
+
+        if (j == tests.all.size) {
+            i = 0
+            j = 0
+            k++
+            return
+        }
 
         val drone = getDroneState()
 
         if(j < tests.all.size && i < tests.all[j].size && tests.all[j][i].t < (System.currentTimeMillis() - t0)) {
             pidController.compute(drone, tests.all[j][i])
-
-            mRoll = pidController.Vx.coerceIn(-15.0, 15.0).toFloat()
-            mPitch = pidController.Vy.coerceIn(-15.0, 15.0).toFloat()
+//            mRoll = pidController.Vx.coerceIn(-15.0, 15.0).toFloat()
+//            mPitch = pidController.Vy.coerceIn(-15.0, 15.0).toFloat()
+            mRoll = (15 * tanh(pidController.Vx / 8)).toFloat()
+            mPitch = (15 * tanh(pidController.Vy/ 8)).toFloat()
 
             i++
         }
@@ -82,6 +92,9 @@ class DroneManager {
             t0 = 0
             x0 = 0.0
             y0 = 0.0
+            pidController.Kp = tests.gains[k][0]
+            pidController.Kd = tests.gains[k][1]
+            pidController.Ki = tests.gains[k][2]
         }
 
         val drone = DroneData(
@@ -106,7 +119,7 @@ class DroneManager {
             x0 = drone.x
             y0 = drone.y
             t0 = System.currentTimeMillis()
-            testName = tests.all[j][i].id
+            testName = tests.all[j][i].id + '_' + pidController.Kp + '_' + pidController.Kd + '_' + pidController.Ki
 
             drone.x = 0.0
             drone.y = 0.0
