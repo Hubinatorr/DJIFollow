@@ -12,8 +12,8 @@ data = json.load(open(Path(__file__).parent / path, "r"))
 
 class Kalman:
     def __init__(self):
-        self.ekfState = np.array([0, 0, -1, 0, 0, 0, 0])
-        self.prevState = self.ekfState
+        self.system_state = np.array([0, 0, -1, 0, 0, 0, 0])
+        self.prevState = self.system_state
         self.initStdDevs = np.array([.1, .1, .3, .1, .1, .3, .05])
 
         self.QUAD_EKF_NUM_STATES = 7
@@ -25,9 +25,9 @@ class Kalman:
         # Magnetometer measurement covariance
         self.R_MAG = np.zeros((1, 1))
 
-        self.ekfCov = np.identity(self.QUAD_EKF_NUM_STATES)
+        self.P = np.identity(self.QUAD_EKF_NUM_STATES)
         for i in range(self.QUAD_EKF_NUM_STATES):
-            self.ekfCov[i, i] = self.initStdDevs[i] * self.initStdDevs[i]
+            self.P[i, i] = self.initStdDevs[i] * self.initStdDevs[i]
 
         QPosXYStd = 0.05
         QPosZStd = 0.05
@@ -74,36 +74,25 @@ class Kalman:
 
 
     def predict(self, dt, i, pos):
-        targetHeading = help_module.get_angle(pos["yaw"])
-        targetCommandSpeedX = ((pos["rv"]/660.0)*10)
-        targetCommandSpeedY = ((pos["rh"]/660.0)*10)
-        xX = targetCommandSpeedX * cos(math.radians(targetHeading))
-        yX = targetCommandSpeedX * sin(math.radians(targetHeading))
-        xY = targetCommandSpeedY * cos(math.radians(targetHeading + 90))
-        yY = targetCommandSpeedY * sin(math.radians(targetHeading + 90))
-        targetCommandX = xX + xY
-        targetCommandY = yX + yY
-
-
         newState = self.predictState(dt, targetCommandX, targetCommandY, i)
 
 
-        gPrime = np.identity(self.QUAD_EKF_NUM_STATES)
-        gPrime[0][3] = dt
-        gPrime[1][4] = dt
-        gPrime[2][5] = dt
-        gPrime[3][6] = math.tanh((targetCommandX - self.ekfState[3]) / 15)*dt
-        gPrime[4][6] = math.tanh((targetCommandY - self.ekfState[4]) / 15)*dt
-        gPrime[5][6] = 0*dt
+        F = np.identity(self.QUAD_EKF_NUM_STATES)
+        F[0][3] = dt
+        F[1][4] = dt
+        F[2][5] = dt
+        F[3][6] = math.tanh((targetCommandX - self.system_state[3]) / 15)*dt
+        F[4][6] = math.tanh((targetCommandY - self.system_state[4]) / 15)*dt
+        F[5][6] = 0*dt
 
-        self.ekfCov = np.add(gPrime @ (self.ekfCov @ np.transpose(gPrime)), self.Q)
-        self.ekfState = newState
+        self.P = np.add(F @ (self.P @ np.transpose(F)), self.Q)
+        self.system_state = newState
 
     def predictState(self, dt, cX, cY, i ):
-        predictedState = self.ekfState
-        predictedState[0] = predictedState[0] + self.ekfState[3] * dt
-        predictedState[1] = predictedState[1] + self.ekfState[4] * dt
-        predictedState[2] = predictedState[2] + self.ekfState[5] * dt
+        predictedState = self.system_state
+        predictedState[0] = predictedState[0] + self.system_state[3] * dt
+        predictedState[1] = predictedState[1] + self.system_state[4] * dt
+        predictedState[2] = predictedState[2] + self.system_state[5] * dt
         if i != 0:
             predictedState[3] = predictedState[3] + math.tanh((cX - predictedState[3])/15)*dt
             predictedState[4] = predictedState[4] + math.tanh((cY - predictedState[4])/15)*dt
@@ -112,14 +101,14 @@ class Kalman:
         return predictedState
 
     def update(self, z, H, R, zFromX):
-        toInvert = np.add(H @ self.ekfCov @ np.transpose(H), R)
-        self.ekfCov @ np.transpose(H) @ np.linalg.inv(toInvert)
-        K = self.ekfCov @ np.transpose(H) @ np.linalg.inv(toInvert)
+        toInvert = np.add(H @ self.P @ np.transpose(H), R)
+        self.P @ np.transpose(H) @ np.linalg.inv(toInvert)
+        K = self.P @ np.transpose(H) @ np.linalg.inv(toInvert)
 
         diffZ = np.subtract(z, zFromX)
         eye = np.identity(self.QUAD_EKF_NUM_STATES)
-        self.ekfState = np.add(self.ekfState, K @ diffZ)
-        self.ekfCov = (np.subtract(eye, K @ H)) @ self.ekfCov
+        self.system_state = np.add(self.system_state, K @ diffZ)
+        self.P = (np.subtract(eye, K @ H)) @ self.P
 
     def updateFromGPS(self, pos):
         z = np.array([pos['x'] - data[0]['x'], pos['y'] - data[0]['y'], pos['z'] - data[0]['z'], pos['vX'], pos['vY'], pos['vZ']])
@@ -132,12 +121,12 @@ class Kalman:
         hPrime[4][4] = 1.0
         hPrime[5][5] = 1.0
 
-        zFromX[0] = self.ekfState[0]
-        zFromX[1] = self.ekfState[1]
-        zFromX[2] = self.ekfState[2]
-        zFromX[3] = self.ekfState[3]
-        zFromX[4] = self.ekfState[4]
-        zFromX[5] = self.ekfState[5]
+        zFromX[0] = self.system_state[0]
+        zFromX[1] = self.system_state[1]
+        zFromX[2] = self.system_state[2]
+        zFromX[3] = self.system_state[3]
+        zFromX[4] = self.system_state[4]
+        zFromX[5] = self.system_state[5]
 
         self.update(z, hPrime, self.R_GPS, zFromX)
 
@@ -168,16 +157,16 @@ data = help_module.get_noise(data, 15, 1.0)
 
 for i, pos in enumerate(data):
     if i < len(data) - 1:
-        kalman.prevState = kalman.ekfState
+        kalman.prevState = kalman.system_state
         kalman.predict((data[i+1]["t"] - data[i]["t"])/1000, i, pos)
         kalman.updateFromGPS(pos)
-        xEst.append(kalman.ekfState[0])
+        xEst.append(kalman.system_state[0])
         xZ.append(pos["x"] - data[0]["x"])
-        yEst.append(kalman.ekfState[1])
+        yEst.append(kalman.system_state[1])
         yZ.append(pos["y"] - data[0]["y"])
-        vxEst.append(kalman.ekfState[3])
+        vxEst.append(kalman.system_state[3])
         vxZ.append(pos["vX"])
-        vyEst.append(kalman.ekfState[4])
+        vyEst.append(kalman.system_state[4])
         vyZ.append(pos["vY"])
         xx.append(pos["t"] - data[0]["t"])
 

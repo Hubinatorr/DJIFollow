@@ -1,5 +1,8 @@
 import json
 from pathlib import Path
+
+from plotly.subplots import make_subplots
+import plotly.graph_objects as go
 import help_module
 import numpy as np
 from numpy import cos, sin
@@ -12,7 +15,7 @@ class Kalman:
         self.K = None
         self.Q = None
         self.F = None
-        self.system_state = [0, 0, 0, 0, 0, 0]
+        self.system_state = np.array([0, 0, 0, 0, 0, 0])
         self.GPSPosXYStd = 1
         self.GPSVelXYStd = .1
         self.p_posXYStd = 0.05
@@ -27,83 +30,77 @@ class Kalman:
         self.H[0][0] = 1.0
         self.H[1][3] = 1.0
         self.R = [[pow(self.GPSPosXYStd, 2), 0], [0, pow(self.GPSPosXYStd, 2)]]
+        dt = 0.1
+        self.Q = np.matrix([[pow(dt, 4) / 4, pow(dt, 3) / 2, pow(dt, 2) / 2, 0, 0, 0],
+                            [pow(dt, 3) / 2, pow(dt, 2), dt, 0, 0, 0],
+                            [pow(dt, 2) / 2, dt, 1, 0, 0, 0],
+                            [0, 0, 0, pow(dt, 4) / 4, pow(dt, 3) / 2, pow(dt, 2) / 2],
+                            [0, 0, 0, pow(dt, 3) / 2, pow(dt, 2), dt],
+                            [0, 0, 0, pow(dt, 2) / 2, dt, 1]])
+        self.Q = np.multiply(self.Q, pow(self.p_accXYStd, 2))
+        # F - state transition matrix
 
-    def update(self, x_z, y_z):
-        self.K = self.P @ np.transpose(self.H) @ (1 / np.add(self.H @ self.P @ np.transpose(self.H), self.R))
-        z = np.zeros(2)
-        z[0] = x_z
-        z[1] = y_z
-        self.system_state = np.add(self.system_state, self.K @ np.subtract(z, self.H @ self.system_state))
+    def update(self, pos):
+        z = np.array([pos["x"], pos["y"]])
+        zFromX = np.zeros(2)
+        zFromX[0] = self.system_state[0]
+        zFromX[1] = self.system_state[3]
+
+        diffZ = np.subtract(z, zFromX)
+        invert = np.add(self.H @ self.P @ np.transpose(self.H), self.R)
+
+        self.K = self.P @ np.transpose(self.H) @ np.linalg.inv(invert)
+
+        self.system_state = np.add(self.system_state, self.K @ diffZ)
 
         I = np.identity(6)
         self.P = np.add(np.subtract(I, self.K @ self.H) @ self.P @ np.transpose(np.subtract(I, self.K @ self.H)) , self.K @ self.R @ np.transpose(self.K))
 
     def predict(self, dt):
-        # F - state transition matrix
-        self.F = np.identity(6)
-        self.F[0][1] = dt
-        self.F[0][2] = 0.5 * pow(dt, 2)
-        self.F[1][2] = dt
-        self.F[3][4] = dt
-        self.F[3][5] = 0.5 * pow(dt, 2)
-        self.F[4][5] = dt
-
-        self.Q = np.matrix((6, 6),
-                      [[pow(dt, 4) / 4, pow(dt, 3) / 2, pow(dt, 2) / 2, 0, 0, 0],
-                       [pow(dt, 3) / 2, pow(dt, 2), dt, 0, 0, 0],
-                       [pow(dt, 2) / 2, dt, 1, 0, 0, 0],
-                       [0, 0, 0, pow(dt, 4) / 4, pow(dt, 3) / 2, pow(dt, 2) / 2],
-                       [0, 0, 0, pow(dt, 3) / 2, pow(dt, 2), dt],
-                       [0, 0, 0, pow(dt, 2) / 2, dt, 1]])
-
         # State extrapolation
-        self.system_state = np.multiply(self.F, dt)
+        F = np.identity(6)
+        F[0][1] = dt
+        F[0][2] = 0.5 * pow(dt, 2)
+        F[1][2] = dt
+        F[3][4] = dt
+        F[3][5] = 0.5 * pow(dt, 2)
+        F[4][5] = dt
 
-        self.P = np.add(self.F @ self.P @ np.transpose(self.F), Q)
+        new_state = self.system_state
+        new_state[0] = new_state[0] + new_state[1]*dt + 0.5*new_state[2]*pow(dt, 2)
+        new_state[1] = new_state[1] + new_state[2]*dt
+        new_state[2] = new_state[2]
+        new_state[3] = new_state[3] + new_state[4]*dt + 0.5*new_state[5]*pow(dt, 2)
+        new_state[4] = new_state[4] + new_state[5]*dt
+        new_state[5] = new_state[5]
 
-        #
-        # # The estimate uncertainty in matrix form is:
-        # Pnn = np.matrix((6, 6),
-        #                 [[pow(self.p_posXYStd, 2), pow(self.p_velXYStd, 2), pow(self.p_accXYStd, 2),
-        #                   0, 0, 0],
-        #                  [pow(self.p_velXYStd, 2), pow(self.p_velXYStd, 2), pow(self.p_accXYStd, 2),
-        #                   0, 0, 0],
-        #                  [pow(self.p_velXYStd, 2), pow(self.p_velXYStd, 2), pow(self.p_accXYStd, 2),
-        #                   0, 0, 0],
-        #                  [0, 0, 0, pow(self.p_posXYStd, 2), pow(self.p_velXYStd, 2),
-        #                   pow(self.p_accXYStd, 2)],
-        #                  [0, 0, 0, pow(self.p_velXYStd, 2), pow(self.p_velXYStd, 2),
-        #                   pow(self.p_accXYStd, 2)],
-        #                  [0, 0, 0, pow(self.p_velXYStd, 2), pow(self.p_velXYStd, 2),
-        #                   pow(self.p_accXYStd, 2)]])
-        #
-        #
-        # # process noise metrix
-        # Q = Q @ pow(self.p_accXYStd, 2)
-        #
-        # Rn = [[pow(self.GPSPosXYStd, 2), 0], [0, pow(self.GPSPosXYStd, 2)]]
-        #
-        # # covariance extrapolation equation
-        # Pnew = np.add(F @ Pnn @ np.transpose(F), Q)
-        #
-        # # measurement equation
-        # # measureMentState = [x_gps, y_gps]
-        # H = np.zeros((2, 6))
-        # H[0][0] = 1.0
-        # H[1][3] = 1.0
-        #
-        # # measurement covariance matrix
-
-        # Kalman gain
-        # Kn = Pnn @ np.transpose(H) @ np.add(H @ Pnn @ np.transpose(H), Rn)
-
+        self.P = np.add(F @ self.P @ np.transpose(F), self.Q)
+        self.system_state = new_state
 
 path = "testData/normal.json"
-data = json.load(open(Path(__file__).parent / path, "r"))
+data = json.load(open(Path(__file__).parent / "testData/normal.json", "r"))
 noise = help_module.get_random_noise(data, 2)
 
 kalman = Kalman()
 kalman.predict(0.1)
 
-for pos in data:
-    kalman.update(pos["x"], pos["y"])
+xEst = []
+yEst = []
+xx = []
+for i, pos in enumerate(data):
+    kalman.update(pos)
+    kalman.predict(0.1)
+    xEst.append(kalman.system_state[0])
+    yEst.append(kalman.system_state[1])
+    xx.append(pos["t"])
+
+print(xEst)
+print(yEst)
+
+# fig = make_subplots(rows=2, cols=1, subplot_titles=("x", "y"))
+# fig.add_trace(go.Scatter(x=xx, y=xEst, mode='lines+markers', name="xKalman"), row=1, col=1)
+# fig.add_trace(go.Scatter(x=xx, y=[pos["x"] for pos in data], mode='lines+markers', name="xTrue"), row=1, col=1)
+# fig.add_trace(go.Scatter(x=xx, y=yEst, mode='lines+markers', name="yKalman"), row=2, col=1)
+# fig.add_trace(go.Scatter(x=xx, y=[pos["y"] for pos in data], mode='lines+markers', name="yTrue"), row=2, col=1)
+#
+# fig.show()

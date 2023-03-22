@@ -12,6 +12,7 @@ def get_noise(data, f, max_noise):
         # pos["vY"] = pos["vY"] + n
     return noise_data
 
+
 def get_random_noise(data, max_noise):
     noise_data = data
     for i, pos in enumerate(noise_data):
@@ -21,6 +22,7 @@ def get_random_noise(data, max_noise):
         # pos["vX"] = pos["vX"] + n
         # pos["vY"] = pos["vY"] + n
     return noise_data
+
 
 def get_angle(angle):
     if angle in range(180):
