@@ -12,7 +12,7 @@ class PID {
 
     var Kd = 1.5
 
-    var Ki = 0.0
+    var Ki = 0.01
 
     private var Kpx = 2.0
     private var Kpy = 2.0
@@ -22,9 +22,9 @@ class PID {
     private var Kdy = 1.47
     private var Kdz = 1.47
 
-    private var Kix = 0.4
-    private var Kiy = 0.4
-    private var Kiz = 0.4
+    private var Kix = 0.2
+    private var Kiy = 0.2
+    private var Kiz = 0.2
 
     // Position Error
     private var eX = 0.0
@@ -60,7 +60,7 @@ class PID {
     var Vy = 0.0
     var Vz = 0.0
 
-    private var mLatitudeOffset = 0.0
+    private var mLatitudeOffset = 1.0
     private var mLongitudeOffset = 0.0
     private var mAltitudeOffset = 0.0
 
@@ -68,11 +68,9 @@ class PID {
 
     private var gamma = 0.01
 
-    private var i = 1
+    private var i = 0
     fun compute(drone: DroneData, target: DroneData) {
         val currentTimestamp = System.currentTimeMillis()
-        val deltaT = (currentTimestamp - prevTimestamp) / 1000.0
-
         eX = target.x - drone.x + mLatitudeOffset
         eY = target.y - drone.y + mLongitudeOffset
         eZ = target.z - drone.z + mAltitudeOffset
@@ -82,18 +80,11 @@ class PID {
         veZ = target.vZ - drone.vZ
 
         if (i > 1) {
+            val deltaT = (currentTimestamp - prevTimestamp) / 1000.0
             iX += ((eX + eXprev)/2) * deltaT
             iY += ((eY + eYprev)/2) * deltaT
             iZ += ((eZ + eZprev)/2) * deltaT
         }
-
-        eXfull += eX.pow(2)
-        eYfull += eY.pow(2)
-        eZfull += eZ.pow(2)
-
-        veXfull += veXfull.pow(2)
-        veYfull += veYfull.pow(2)
-        veZfull += veZfull.pow(2)
 
         Vx = Kp * eX /**/ + Ki * iX /**/ + Kd * veX
         Vy = Kp * eY /**/ + Ki * iY /**/ + Kd * veY
@@ -127,6 +118,14 @@ class PID {
         val gdX = ((veXfull + veX.pow(2)) / i - (veXfull / (i - 1))) / 0.01
         val gdY = ((veYfull + veY.pow(2)) / i - (veYfull / (i - 1))) / 0.01
         val gdZ = ((veZfull + veZ.pow(2)) / i - (veZfull / (i - 1))) / 0.01
+
+        eXfull += eX.pow(2)
+        eYfull += eY.pow(2)
+        eZfull += eZ.pow(2)
+
+        veXfull += veXfull.pow(2)
+        veYfull += veYfull.pow(2)
+        veZfull += veZfull.pow(2)
 
         Kpx = max(Kpx - (gamma * gpX), 0.0)
         Kpy = max(Kpy - (gamma * gpY), 0.0)

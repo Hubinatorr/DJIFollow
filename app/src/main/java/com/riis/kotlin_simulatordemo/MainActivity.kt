@@ -26,6 +26,7 @@ import kotlinx.serialization.json.Json
 import java.net.URI
 import java.net.URISyntaxException
 import java.util.*
+import kotlin.math.tanh
 
 
 class MainActivity : AppCompatActivity(), View.OnClickListener {
@@ -39,7 +40,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private lateinit var mBtnStartMission: Button
     private lateinit var mBtnStartSimulator: Button
     private lateinit var mFrequencyText: EditText
-
+    private var pidController = PID()
     private var mSendVirtualStickDataTimer: Timer? = null
     private var mSendVirtualStickDataTask: SendVirtualStickDataTask? = null
     private val viewModel by viewModels<MainViewModel>()
@@ -47,7 +48,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private var droneManager = DroneManager()
 
     private var interval: Long = 40
-
+    private var follow = false
     companion object {
         const val DEBUG = "drone_debug"
         const val RECORD = "drone_record"
@@ -77,9 +78,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             ), 1
         )
         viewModel.startSdkRegistration(this)
-        createWebSocketClient()
         initObservers()
         initUi()
+        createWebSocketClient()
     }
 
     private fun createWebSocketClient() {
@@ -96,8 +97,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
             override fun onMessage(s: String) {
                 try {
-                    val droneData = Json.decodeFromString<DroneData>(s)
-                    droneManager.target = droneData
+                    val target = Json.decodeFromString<DroneData>(s)
+                    droneManager.calculateFollowData(target)
                 } catch (e: Exception) {
                     Log.i(DEBUG, e.message.toString())
                 }
@@ -277,11 +278,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 showToast("Loaded")
             }
             R.id.btn_start_mission -> {
-                if (mSendVirtualStickDataTimer == null) {
-                    mSendVirtualStickDataTask = SendVirtualStickDataTask()
-                    mSendVirtualStickDataTimer = Timer()
-                    mSendVirtualStickDataTimer?.schedule(mSendVirtualStickDataTask, 0, interval)
-                }
+                follow = !follow
+                if (follow)
+                    showToast("Start Follow")
+                else
+                    showToast("Stop Follow")
             }
             R.id.btn_start_simulation -> {
                 startSimulation()
@@ -333,7 +334,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
     inner class SendVirtualStickDataTask : TimerTask() {
         override fun run() {
-            droneManager.calculateFollowData()
 
         }
     }
