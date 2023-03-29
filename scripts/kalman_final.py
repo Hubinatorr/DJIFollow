@@ -46,7 +46,10 @@ def get_Q(dt):
                               ])) * dt
 
 
-data = get_noise(json.load(open(Path(__file__).parent / "testData/normal.json", "r")), 5, 1.0)
+data = get_noise(json.load(open(Path(__file__).parent / "testData/normal.json", "r")), 15, 2)
+with open(Path(__file__).parent / "testData/normal_noise.json", "w") as myfile:
+    myfile.write(json.dumps(data))
+
 real = json.load(open(Path(__file__).parent / "testData/normal.json", "r"))
 
 # init
@@ -83,13 +86,15 @@ for i in range(2, len(data)):
     # update
     z = np.array(
         [data[i]["x"], data[i]["y"], data[i]["z"], data[i]["vX"], data[i]["vY"], data[i]["vZ"],
-         data[i]["vX"] - data[i - 1]["vX"], data[i]["vY"] - data[i - 1]["vY"],
-         data[i]["vZ"] - data[i - 1]["vZ"]])
+         (data[i]["vX"] - data[i - 1]["vX"]) / dt, (data[i]["vY"] - data[i - 1]["vY"]) / dt,
+         (data[i]["vZ"] - data[i - 1]["vZ"]) / dt])
     I = np.identity(9)
     K = predicted_P @ T(H) @ inv(H @ predicted_P @ T(H) + R)
     state = predicted_state + K @ (z - H @ predicted_state)
     P = (I - K @ H) @ predicted_P @ T(I - K @ H) + K @ R @ T(K)
     states.append(state)
+
+# kotlin = json.load(open(Path(__file__).parent / "resultData/kalman_test.json", "r"))
 
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=list(range(len(data))), y=[p["x"] for p in real], mode='lines+markers',
@@ -98,4 +103,7 @@ fig.add_trace(go.Scatter(x=list(range(len(data))), y=[p["x"] for p in data], mod
                          name="measurement X"))
 fig.add_trace(go.Scatter(x=list(range(len(data))), y=[s[0] for s in states], mode='lines+markers',
                          name="est X"))
+# fig.add_trace(
+#     go.Scatter(x=list(range(len(kotlin))), y=[s["x"] for s in kotlin], mode='lines+markers',
+#                name="est kotlin X"))
 fig.show()

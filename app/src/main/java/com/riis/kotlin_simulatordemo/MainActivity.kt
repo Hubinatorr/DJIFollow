@@ -22,7 +22,10 @@ import dji.thirdparty.org.java_websocket.client.WebSocketClient
 import dji.thirdparty.org.java_websocket.handshake.ServerHandshake
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromStream
+import org.jetbrains.kotlinx.multik.ndarray.data.get
 import java.net.URI
 import java.net.URISyntaxException
 import java.util.*
@@ -46,7 +49,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private val viewModel by viewModels<MainViewModel>()
 
     private var droneManager = DroneManager()
-
+    private var kalman: Kalman = Kalman()
     private var interval: Long = 40
     private var follow = false
     companion object {
@@ -274,7 +277,24 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             }
             R.id.btn_load -> {
                 showToast("Loading")
-                droneManager.tests.init(resources)
+                var normal: List<DroneData> = Json.decodeFromStream(resources.openRawResource(R.raw.normal))
+                for ((i, pos) in normal.withIndex()) {
+                    if (i != 0) {
+                        val dt = (pos.t - normal[i-1].t)/1000.0
+                        Log.i(DEBUG, dt.toString())
+                        kalman.predict(dt)
+                        kalman.update(dt, pos)
+
+                        normal[i].x = kalman.state[0]
+                        normal[i].y = kalman.state[1]
+                        normal[i].z = kalman.state[2]
+                        normal[i].vX = kalman.state[3]
+                        normal[i].vY = kalman.state[4]
+                        normal[i].vZ = kalman.state[5]
+                    }
+                }
+                droneManager.webSocketClient.send(Json.encodeToString(normal))
+
                 showToast("Loaded")
             }
             R.id.btn_start_mission -> {
