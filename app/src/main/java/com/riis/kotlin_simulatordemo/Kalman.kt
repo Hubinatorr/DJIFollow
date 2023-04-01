@@ -104,7 +104,7 @@ class Kalman {
     fun update(dt: Double, data: DroneData) {
         val z = mk.ndarray(mk[
                     data.x, data.y, data.z,
-                    data.vX, data.vX, data.vZ,
+                    data.vX, data.vY, data.vZ,
                     (data.vX - state[3]) / dt, (data.vY - state[4]) / dt, (data.vZ - state[5]) / dt]
             )
 

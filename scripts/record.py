@@ -8,7 +8,7 @@ data = []
 
 
 def on_close(signum, frame):
-    path = "resultData/" + sys.argv[1] + '.json'
+    path = "resultData/kalman.json"
     with open(Path(__file__).parent / path, "w") as myfile:
         myfile.write(json.dumps(data))
         myfile.close()

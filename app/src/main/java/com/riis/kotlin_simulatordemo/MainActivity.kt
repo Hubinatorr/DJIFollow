@@ -131,6 +131,7 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
 
                     if (startMission) {
                         val dt = (target.t - prevTarget.t) / 1000.0
+
                         kalman.predict(dt)
                         kalman.update(dt, target)
                         target.x = kalman.state[0]
@@ -140,9 +141,8 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
                         target.vY = kalman.state[4]
                         target.vZ = kalman.state[5]
                         target.id = "kalman"
+                        droneManager.webSocketClient.send(Json.encodeToString(target))
                     }
-                    droneManager.webSocketClient.send(Json.encodeToString(target))
-
                 } catch (e: Exception) {
                     Log.i(DEBUG, e.message.toString())
                 }
@@ -313,6 +313,10 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
             }
             R.id.btn_start_mission -> {
                 if (::prevTarget.isInitialized && ::target.isInitialized) {
+                    val ax = (target.vX - prevTarget.vX) / ((target.t - prevTarget.t)/1000.0)
+                    val ay = (target.vY - prevTarget.vY) / ((target.t - prevTarget.t)/1000.0)
+                    val az = (target.vZ - prevTarget.vZ) / ((target.t - prevTarget.t)/1000.0)
+
                     kalman.state = mk.ndarray(mk[
                             target.x,
                             target.y,
@@ -320,9 +324,9 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
                             target.vX,
                             target.vY,
                             target.vZ,
-                            (target.vX - prevTarget.vX) / ((target.t - prevTarget.t)/1000),
-                            (target.vY - prevTarget.vY) / ((target.t - prevTarget.t)/1000),
-                            (target.vZ - prevTarget.vZ) / ((target.t - prevTarget.t)/1000)
+                            ax,
+                            ay,
+                            az
                     ])
                     startMission = true
                 }
