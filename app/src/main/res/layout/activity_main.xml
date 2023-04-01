@@ -6,144 +6,159 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-    <RelativeLayout
-        android:id="@+id/main_title_rl"
-        android:layout_width="fill_parent"
-        android:layout_height="40dp"
-        android:background="@color/black_overlay">
-
-        <ImageButton
-            android:id="@+id/ReturnBtn"
-            android:layout_width="wrap_content"
-            android:layout_height="35dp"
-            android:layout_alignParentLeft="true"
-            android:layout_centerVertical="true"
-            android:layout_marginLeft="5dp"
-            android:adjustViewBounds="true"
-            android:background="@android:color/transparent"
-            android:onClick="onReturn"
-            android:scaleType="centerInside"
-            android:src="@drawable/selector_back_button"
-            tools:ignore="TouchTargetSizeCheck,SpeakableTextPresentCheck" />
-
-        <TextView
-            android:id="@+id/ConnectStatusTextView"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
-            android:text="SimulatorDemo"
-            android:textColor="@android:color/white"
-            android:textSize="19sp" />
-    </RelativeLayout>
-
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="275dp">
+        android:layout_height="match_parent">
 
-        <Button
-            android:id="@+id/btn_land"
-            style="@style/common_button"
-            android:layout_width="87dp"
-            android:layout_height="43dp"
-            android:text="Land"
-            app:layout_constraintEnd_toStartOf="@+id/btn_disable_virtual_stick"
-            app:layout_constraintStart_toEndOf="@+id/btn_start_simulation"
-            app:layout_constraintTop_toBottomOf="@+id/btn_take_off" />
-
-        <Button
-            android:id="@+id/btn_load"
-            style="@style/common_button"
-            android:layout_width="87dp"
-            android:layout_height="43dp"
-            android:layout_marginTop="12dp"
-            android:text="Load"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.49"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/btn_land" />
-
-        <Button
-            android:id="@+id/btn_take_off"
-            style="@style/common_button"
-            android:layout_width="88dp"
-            android:layout_height="45dp"
-            android:layout_marginTop="96dp"
-            android:text="Take Off"
-            app:layout_constraintEnd_toStartOf="@+id/btn_enable_virtual_stick"
-            app:layout_constraintStart_toEndOf="@+id/btn_start_mission"
-            app:layout_constraintTop_toTopOf="parent" />
-
-        <Button
-            android:id="@+id/btn_disable_virtual_stick"
-            style="@style/common_button"
+        <TextureView
+            android:id="@+id/video_previewer_surface"
             android:layout_width="0dp"
-            android:layout_height="47dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginEnd="12dp"
-            android:text="Disable Virtual Stick"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/btn_enable_virtual_stick" />
-
-        <Button
-            android:id="@+id/btn_record"
-            style="@style/common_button"
-            android:layout_width="88dp"
-            android:layout_height="47dp"
-            android:layout_marginStart="28dp"
-            android:layout_marginTop="4dp"
-            android:text="Record"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toEndOf="@+id/btn_load"
-            app:layout_constraintTop_toBottomOf="@+id/btn_disable_virtual_stick" />
-
-        <Button
-            android:id="@+id/btn_start_simulation"
-            style="@style/common_button"
-            android:layout_width="126dp"
-            android:layout_height="43dp"
-            android:layout_marginStart="16dp"
-            android:layout_marginTop="11dp"
-            android:text="Start Simulator"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/btn_start_mission" />
-
-        <Button
-            android:id="@+id/btn_start_mission"
-            style="@style/common_button"
-            android:layout_width="125dp"
-            android:layout_height="45dp"
-            android:layout_marginStart="16dp"
-            android:layout_marginTop="96dp"
-            android:text="Start Mission"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
-
-        <Button
-            android:id="@+id/btn_enable_virtual_stick"
-            style="@style/common_button"
-            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="96dp"
-            android:layout_marginEnd="16dp"
-            android:text="Enable Virtual Stick"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <EditText
-            android:id="@+id/frequency"
-            android:layout_width="129dp"
-            android:layout_height="37dp"
-            android:layout_marginStart="16dp"
-            android:layout_marginTop="16dp"
-            android:layout_marginEnd="14dp"
-            android:ems="10"
-            android:inputType="numberDecimal"
-            app:layout_constraintEnd_toStartOf="@+id/btn_load"
-            app:layout_constraintHorizontal_bias="0.0"
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:layout_constraintBottom_toBottomOf="@+id/video_previewer_surface"
+            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/btn_start_simulation" />
+            app:layout_constraintTop_toTopOf="parent">
+
+            <TextView
+                android:id="@+id/ConnectStatusTextView"
+                android:layout_width="113dp"
+                android:layout_height="0dp"
+                android:background="#BFBFBF"
+                android:text="TextView"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <LinearLayout
+            android:layout_width="104dp"
+            android:layout_height="0dp"
+            android:orientation="vertical"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/linearLayout2">
+
+            <Button
+                android:id="@+id/btn_connect_ws"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Connect WS"
+                android:textSize="10sp" />
+
+            <Button
+                android:id="@+id/btn_start_mission"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Start Mission"
+                android:textSize="10sp" />
+
+            <Button
+                android:id="@+id/btn_record"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Record"
+                android:textSize="10sp" />
+
+            <Button
+                android:id="@+id/btn_start_simulation"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Start Sim"
+                android:textSize="10sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/linearLayout2"
+            android:layout_width="176dp"
+            android:layout_height="146dp"
+            android:orientation="vertical"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <TextView
+                android:id="@+id/x"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="x:" />
+
+            <TextView
+                android:id="@+id/y"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="y:" />
+
+            <TextView
+                android:id="@+id/z"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="z:" />
+
+            <TextView
+                android:id="@+id/targer_distance"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="dist:" />
+
+            <TextView
+                android:id="@+id/ws"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="ws disconnected" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="80dp"
+            android:layout_height="0dp"
+            android:orientation="vertical"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <Button
+                android:id="@+id/button2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Set Offset"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/btn_enable_virtual_stick"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Start Follow"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/btn_disable_virtual_stick"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Stop Follow"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/btn_take_off"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Take off"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/btn_land"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Land"
+                android:textSize="12sp" />
+
+        </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
-
-
 </RelativeLayout>

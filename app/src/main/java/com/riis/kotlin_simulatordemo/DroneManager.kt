@@ -55,14 +55,6 @@ class DroneManager {
             }
         }
 
-        controller.sendVirtualStickFlightControlData(
-            FlightControlData(mPitch, mRoll, mYaw, mThrottle)
-        ) { djiError ->
-            if (djiError != null) {
-                Log.i(MainActivity.DEBUG, djiError.description)
-            }
-        }
-
     }
 
     fun getDroneState(id: String): DroneData {

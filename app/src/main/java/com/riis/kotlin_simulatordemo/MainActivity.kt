@@ -1,39 +1,54 @@
 package com.riis.kotlin_simulatordemo
 
 import android.Manifest
+import android.graphics.SurfaceTexture
 import android.os.Bundle
-import android.text.Editable
-import android.text.TextWatcher
 import android.util.Log
+import android.view.TextureView
 import android.view.View
 import android.widget.Button
-import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.lifecycle.lifecycleScope
+import dji.common.camera.SettingsDefinitions
 import dji.common.flightcontroller.FlightControllerState
 import dji.common.flightcontroller.simulator.InitializationData
 import dji.common.flightcontroller.virtualstick.*
 import dji.common.model.LocationCoordinate2D
+import dji.common.product.Model
+import dji.sdk.base.BaseProduct
+import dji.sdk.camera.Camera
+import dji.sdk.camera.VideoFeeder
+import dji.sdk.codec.DJICodecManager
 import dji.sdk.products.Aircraft
+import dji.sdk.products.HandHeld
+import dji.sdk.sdkmanager.DJISDKManager
 import dji.thirdparty.org.java_websocket.client.WebSocketClient
 import dji.thirdparty.org.java_websocket.handshake.ServerHandshake
+import kotlinx.coroutines.launch
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.decodeFromStream
+import org.jetbrains.kotlinx.multik.api.mk
+import org.jetbrains.kotlinx.multik.api.ndarray
 import org.jetbrains.kotlinx.multik.ndarray.data.get
 import java.net.URI
 import java.net.URISyntaxException
 import java.util.*
-import kotlin.math.tanh
 
 
-class MainActivity : AppCompatActivity(), View.OnClickListener {
+class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, View.OnClickListener {
     private lateinit var mConnectStatusTextView: TextView
+    private lateinit var x: TextView
+    private lateinit var y: TextView
+    private lateinit var z: TextView
+    private lateinit var dist: TextView
+    private lateinit var ws: TextView
+
     private lateinit var mBtnEnableVirtualStick: Button
     private lateinit var mBtnDisableVirtualStick: Button
     private lateinit var mBtnTakeOff: Button
@@ -42,16 +57,19 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private lateinit var mBtnRecord: Button
     private lateinit var mBtnStartMission: Button
     private lateinit var mBtnStartSimulator: Button
-    private lateinit var mFrequencyText: EditText
-    private var pidController = PID()
+
+
+    private var receivedVideoDataListener: VideoFeeder.VideoDataListener? = null
+    private var codecManager: DJICodecManager? = null //handles the encoding and decoding of video data
+    private lateinit var videoSurface: TextureView //Used to display the DJI product's camera video stream
+
     private var mSendVirtualStickDataTimer: Timer? = null
-    private var mSendVirtualStickDataTask: SendVirtualStickDataTask? = null
     private val viewModel by viewModels<MainViewModel>()
 
     private var droneManager = DroneManager()
     private var kalman: Kalman = Kalman()
-    private var interval: Long = 40
-    private var follow = false
+
+    private var startMission = false
     companion object {
         const val DEBUG = "drone_debug"
         const val RECORD = "drone_record"
@@ -80,12 +98,16 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 Manifest.permission.RECORD_AUDIO
             ), 1
         )
+        receivedVideoDataListener = VideoFeeder.VideoDataListener { videoBuffer, size ->
+            codecManager?.sendDataToDecoder(videoBuffer, size)
+        }
         viewModel.startSdkRegistration(this)
         initObservers()
         initUi()
-        createWebSocketClient()
     }
 
+    private lateinit var target: DroneData
+    private lateinit var prevTarget: DroneData
     private fun createWebSocketClient() {
         val uri: URI = try {
             URI("ws://147.229.193.119:8000")
@@ -95,24 +117,43 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         }
         droneManager.webSocketClient = object : WebSocketClient(uri) {
             override fun onOpen(serverHandshake: ServerHandshake) {
-                Log.i(DEBUG, "Connected to the DroCo server.")
+                ws.text = "ws connected"
             }
 
             override fun onMessage(s: String) {
                 try {
-                    val target = Json.decodeFromString<DroneData>(s)
-                    droneManager.calculateFollowData(target)
+                    prevTarget = if (!::prevTarget.isInitialized) {
+                        Json.decodeFromString(s)
+                    } else {
+                        target
+                    }
+                    target = Json.decodeFromString(s)
+
+                    if (startMission) {
+                        val dt = (target.t - prevTarget.t) / 1000.0
+                        kalman.predict(dt)
+                        kalman.update(dt, target)
+                        target.x = kalman.state[0]
+                        target.y = kalman.state[1]
+                        target.z = kalman.state[2]
+                        target.vX = kalman.state[3]
+                        target.vY = kalman.state[4]
+                        target.vZ = kalman.state[5]
+                        target.id = "kalman"
+                    }
+                    droneManager.webSocketClient.send(Json.encodeToString(target))
+
                 } catch (e: Exception) {
                     Log.i(DEBUG, e.message.toString())
                 }
             }
 
             override fun onClose(i: Int, s: String, b: Boolean) {
-                Log.i(DEBUG, "Connection to the DroCo server closed.")
+                ws.text = "ws disconnected"
             }
 
             override fun onError(e: Exception) {
-                Log.i(DEBUG, "Error connection")
+                ws.text = "ws error connection"
             }
         }
 
@@ -158,6 +199,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     }
 
     private fun initUi() {
+
         mBtnEnableVirtualStick = findViewById(R.id.btn_enable_virtual_stick)
         mBtnEnableVirtualStick.setOnClickListener(this)
 
@@ -179,32 +221,20 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         mBtnStartSimulator = findViewById(R.id.btn_start_simulation)
         mBtnStartSimulator.setOnClickListener(this)
 
-        mBtnLoad = findViewById(R.id.btn_load)
+        mBtnLoad = findViewById(R.id.btn_connect_ws)
         mBtnLoad.setOnClickListener(this)
 
         mConnectStatusTextView = findViewById(R.id.ConnectStatusTextView)
 
-        mFrequencyText = findViewById(R.id.frequency)
-        mFrequencyText.addTextChangedListener(object : TextWatcher {
+        videoSurface = findViewById(R.id.video_previewer_surface)
+        videoSurface.surfaceTextureListener = this
 
-            override fun afterTextChanged(s: Editable) {
-                interval = mFrequencyText.text.toString().toLongOrNull()!!
-            }
-
-            override fun beforeTextChanged(
-                s: CharSequence, start: Int,
-                count: Int, after: Int
-            ) {
-            }
-
-            override fun onTextChanged(
-                s: CharSequence, start: Int,
-                before: Int, count: Int
-            ) {
-            }
-        })
+        x = findViewById(R.id.x)
+        y = findViewById(R.id.y)
+        z = findViewById(R.id.z)
+        dist = findViewById(R.id.targer_distance)
+        ws = findViewById(R.id.ws)
     }
-
     private fun initFlightController() {
         viewModel.getFlightController()?.let {
             it.rollPitchControlMode = RollPitchControlMode.VELOCITY
@@ -212,6 +242,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             it.verticalControlMode = VerticalControlMode.VELOCITY
             it.rollPitchCoordinateSystem = FlightCoordinateSystem.GROUND
             val callback = FlightControllerState.Callback {
+                val state = droneManager.getDroneState("target")
+                x.text = state.x.toString()
+                y.text = state.y.toString()
+                z.text = state.z.toString()
                 droneManager.onStateChange()
             }
             it.setStateCallback(callback)
@@ -219,7 +253,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         }
     }
 
-    @OptIn(ExperimentalSerializationApi::class)
     override fun onClick(v: View?) {
         when (v?.id) {
             R.id.btn_enable_virtual_stick -> {
@@ -275,34 +308,24 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                     }
                 }
             }
-            R.id.btn_load -> {
-                showToast("Loading")
-                var normal: List<DroneData> = Json.decodeFromStream(resources.openRawResource(R.raw.normal))
-                for ((i, pos) in normal.withIndex()) {
-                    if (i != 0) {
-                        val dt = (pos.t - normal[i-1].t)/1000.0
-                        Log.i(DEBUG, dt.toString())
-                        kalman.predict(dt)
-                        kalman.update(dt, pos)
-
-                        normal[i].x = kalman.state[0]
-                        normal[i].y = kalman.state[1]
-                        normal[i].z = kalman.state[2]
-                        normal[i].vX = kalman.state[3]
-                        normal[i].vY = kalman.state[4]
-                        normal[i].vZ = kalman.state[5]
-                    }
-                }
-                droneManager.webSocketClient.send(Json.encodeToString(normal))
-
-                showToast("Loaded")
+            R.id.btn_connect_ws -> {
+                createWebSocketClient()
             }
             R.id.btn_start_mission -> {
-                follow = !follow
-                if (follow)
-                    showToast("Start Follow")
-                else
-                    showToast("Stop Follow")
+                if (::prevTarget.isInitialized && ::target.isInitialized) {
+                    kalman.state = mk.ndarray(mk[
+                            target.x,
+                            target.y,
+                            target.z,
+                            target.vX,
+                            target.vY,
+                            target.vZ,
+                            (target.vX - prevTarget.vX) / ((target.t - prevTarget.t)/1000),
+                            (target.vY - prevTarget.vY) / ((target.t - prevTarget.t)/1000),
+                            (target.vZ - prevTarget.vZ) / ((target.t - prevTarget.t)/1000)
+                    ])
+                    startMission = true
+                }
             }
             R.id.btn_start_simulation -> {
                 startSimulation()
@@ -352,12 +375,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         startSimulation()
     }
 
-    inner class SendVirtualStickDataTask : TimerTask() {
-        override fun run() {
-
-        }
-    }
-
     fun onReturn(view: View) {
         this.finish()
     }
@@ -366,17 +383,163 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
     }
 
-    override fun onDestroy() {
-        mSendVirtualStickDataTask?.let {
-            it.cancel()
-            mSendVirtualStickDataTask = null
-        }
+    private fun initPreviewer() {
 
-        mSendVirtualStickDataTimer?.let {
-            it.cancel()
-            it.purge()
-            mSendVirtualStickDataTimer = null
+        //gets an instance of the connected DJI product (null if nonexistent)
+        val product: BaseProduct = getProductInstance() ?: return
+
+        //if DJI product is disconnected, alert the user
+        if (!product.isConnected) {
+            showToast("Disconnected");
+        } else {
+            /*
+            if the DJI product is connected and the aircraft model is not unknown, add the
+            receivedVideoDataListener to the primary video feed.
+            */
+            videoSurface.surfaceTextureListener = this
+            if (product.model != Model.UNKNOWN_AIRCRAFT) {
+                receivedVideoDataListener?.let {
+                    VideoFeeder.getInstance().primaryVideoFeed.addVideoDataListener(
+                        it
+                    )
+                }
+            }
         }
+    }
+
+    //Function that uninitializes the display for the videoSurface TextureView
+    private fun uninitPreviewer() {
+        val camera: Camera = getCameraInstance() ?: return
+    }
+
+
+    //When the MainActivity is created or resumed, initialize the video feed display
+    override fun onResume() {
+        super.onResume()
+        initPreviewer()
+    }
+
+    //When the MainActivity is paused, clear the video feed display
+    override fun onPause() {
+        uninitPreviewer()
+        super.onPause()
+    }
+
+    //When the MainActivity is destroyed, clear the video feed display
+    override fun onDestroy() {
+        uninitPreviewer()
         super.onDestroy()
     }
+
+    //When a TextureView's SurfaceTexture is ready for use, use it to initialize the codecManager
+    override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
+        if (codecManager == null) {
+            codecManager = DJICodecManager(this, surface, width, height)
+        }
+    }
+
+    //when a SurfaceTexture's size changes...
+    override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {}
+
+    //when a SurfaceTexture is about to be destroyed, uninitialize the codedManager
+    override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+        codecManager?.cleanSurface()
+        codecManager = null
+        return false
+    }
+
+    //When a SurfaceTexture is updated...
+    override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
+
+
+    //Function for taking a a single photo using the DJI Product's camera
+    private fun captureAction() {
+        val camera: Camera = getCameraInstance() ?: return
+
+        /*
+        Setting the camera capture mode to SINGLE, and then taking a photo using the camera.
+        If the resulting callback for each operation returns an error that is null, then the
+        two operations are successful.
+        */
+        val photoMode = SettingsDefinitions.ShootPhotoMode.SINGLE
+        camera.setShootPhotoMode(photoMode) { djiError ->
+            if (djiError == null) {
+                lifecycleScope.launch {
+                    camera.startShootPhoto { djiErrorSecond ->
+                        if (djiErrorSecond == null) {
+                            showToast("take photo: success")
+                        } else {
+                            showToast("Take Photo Failure: ${djiError?.description}")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /*
+    Function for setting the camera mode. If the resulting callback returns an error that
+    is null, then the operation was successful.
+    */
+    private fun switchCameraMode(cameraMode: SettingsDefinitions.CameraMode) {
+        val camera: Camera = getCameraInstance() ?: return
+
+        camera.setMode(cameraMode) { error ->
+            if (error == null) {
+                showToast("Switch Camera Mode Succeeded")
+            } else {
+                showToast("Switch Camera Error: ${error.description}")
+            }
+        }
+
+    }
+
+    /*
+    Note:
+    Depending on the DJI product, the mobile device is either connected directly to the drone,
+    or it is connected to a remote controller (RC) which is then used to control the drone.
+    */
+
+    //Function used to get the DJI product that is directly connected to the mobile device
+    private fun getProductInstance(): BaseProduct? {
+        return DJISDKManager.getInstance().product
+    }
+
+    /*
+    Function used to get an instance of the camera in use from the DJI product
+    */
+    private fun getCameraInstance(): Camera? {
+        if (getProductInstance() == null) return null
+
+        return when {
+            getProductInstance() is Aircraft -> {
+                (getProductInstance() as Aircraft).camera
+            }
+            getProductInstance() is HandHeld -> {
+                (getProductInstance() as HandHeld).camera
+            }
+            else -> null
+        }
+    }
+
+    //Function that returns True if a DJI aircraft is connected
+    private fun isAircraftConnected(): Boolean {
+        return getProductInstance() != null && getProductInstance() is Aircraft
+    }
+
+    //Function that returns True if a DJI product is connected
+    private fun isProductModuleAvailable(): Boolean {
+        return (getProductInstance() != null)
+    }
+
+    //Function that returns True if a DJI product's camera is available
+    private fun isCameraModuleAvailable(): Boolean {
+        return isProductModuleAvailable() && (getProductInstance()?.camera != null)
+    }
+
+    //Function that returns True if a DJI camera's playback feature is available
+    private fun isPlaybackAvailable(): Boolean {
+        return isCameraModuleAvailable() && (getProductInstance()?.camera?.playbackManager != null)
+    }
+
 }
