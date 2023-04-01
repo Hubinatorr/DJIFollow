@@ -20,8 +20,8 @@ def create_plot(tests):
         add_trace(fig, [p["t"] for p in target], [p["x"] for p in target], 1, 1, "targetX")
         add_trace(fig, [p["t"] for p in follower], [p["x"] for p in follower], 1, 1, "followerX")
 
-        add_trace(fig, [p["t"] for p in target], [p["y"] for p in target], 2, 1, "targetY")
-        add_trace(fig, [p["t"] for p in follower], [p["y"] for p in follower], 2, 1, "followerY")
+        add_trace(fig, [p["t"] for p in target], [p["z"] for p in target], 2, 1, "targetY")
+        add_trace(fig, [p["t"] for p in follower], [p["z"] for p in follower], 2, 1, "followerY")
 
         print(len(target))
         print(len(follower))

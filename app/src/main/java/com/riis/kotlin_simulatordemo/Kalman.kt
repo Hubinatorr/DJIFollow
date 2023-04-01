@@ -12,7 +12,7 @@ import kotlin.math.pow
 class Kalman {
     private val q_std = mk.ndarray(mk[0.05, 0.05, 0.05, 0.2, 0.2, 0.1, 0.2, 0.2, 0.1])
     private val est_std = mk.ndarray(mk[.1, .1, .3, .1, .1, .3, .1, .1, .3])
-    private val gps_std = mk.ndarray(mk[1.0, 1.0, 300.0, .1, .1, .3, .1, .1, .3])
+    private val gps_std = mk.ndarray(mk[1.0, 1.0, 1.0, .1, .1, .3, .1, .1, .3])
 
     var state =
         mk.ndarray(mk[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
@@ -104,8 +104,8 @@ class Kalman {
     fun update(dt: Double, data: DroneData) {
         val z = mk.ndarray(mk[
                     data.x, data.y, data.z,
-                    data.vX, data.vY, data.vZ,
-                    (data.vX - state[3]) / dt, (data.vY - state[4]) / dt, (data.vZ - state[5]) / dt]
+                    data.vX, data.vY, -data.vZ,
+                    (data.vX - state[3]) / dt, (data.vY - state[4]) / dt, (-data.vZ - state[5]) / dt]
             )
 
         val I = mk.identity<Double>(9)

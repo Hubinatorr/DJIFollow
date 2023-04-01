@@ -139,7 +139,7 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
                         target.z = kalman.state[2]
                         target.vX = kalman.state[3]
                         target.vY = kalman.state[4]
-                        target.vZ = kalman.state[5]
+                        target.vZ = -kalman.state[5]
                         target.id = "kalman"
                         droneManager.webSocketClient.send(Json.encodeToString(target))
                     }
