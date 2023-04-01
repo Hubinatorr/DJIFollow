@@ -11,7 +11,7 @@ import kotlin.math.tanh
 
 class DroneManager {
     var target: DroneData? = null
-    private var pidController = PID()
+    var pidController = PID()
 
     lateinit var controller: FlightController
     lateinit var webSocketClient: WebSocketClient
@@ -43,9 +43,8 @@ class DroneManager {
     fun calculateFollowData(target: DroneData) {
         val drone = getDroneState("follower")
         pidController.compute(drone, target)
-        val mRoll = (15 * tanh(pidController.Vx / 8)).toFloat()
-        val mPitch = (15 * tanh(pidController.Vy / 8)).toFloat()
-
+        mRoll = pidController.Vx.coerceIn(-5.0, 5.0).toFloat()
+        mPitch = pidController.Vy.coerceIn(-5.0, 5.0).toFloat()
 
         controller.sendVirtualStickFlightControlData(
             FlightControlData(mPitch, mRoll, mYaw, mThrottle)
@@ -59,16 +58,16 @@ class DroneManager {
 
     fun getDroneState(id: String): DroneData {
         return DroneData(
-            System.currentTimeMillis() - t0,
+            System.currentTimeMillis(),
             id,
             Deg2UTM(
                 controller.state.aircraftLocation.latitude,
                 controller.state.aircraftLocation.longitude
-            ).Northing - x0,
+            ).Northing,
             Deg2UTM(
                 controller.state.aircraftLocation.latitude,
                 controller.state.aircraftLocation.longitude
-            ).Easting - y0,
+            ).Easting,
             controller.state.aircraftLocation.altitude.toDouble(),
             controller.state.velocityX.toDouble(),
             controller.state.velocityY.toDouble(),

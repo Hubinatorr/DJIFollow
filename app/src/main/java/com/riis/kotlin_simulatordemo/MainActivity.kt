@@ -57,6 +57,7 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
     private lateinit var mBtnRecord: Button
     private lateinit var mBtnStartMission: Button
     private lateinit var mBtnStartSimulator: Button
+    private lateinit var mBtnSetOffset: Button
 
 
     private var receivedVideoDataListener: VideoFeeder.VideoDataListener? = null
@@ -70,6 +71,8 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
     private var kalman: Kalman = Kalman()
 
     private var startMission = false
+    private var follow = false
+
     companion object {
         const val DEBUG = "drone_debug"
         const val RECORD = "drone_record"
@@ -139,9 +142,13 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
                         target.z = kalman.state[2]
                         target.vX = kalman.state[3]
                         target.vY = kalman.state[4]
-                        target.vZ = -kalman.state[5]
+                        target.vZ = kalman.state[5]
                         target.id = "kalman"
-                        droneManager.webSocketClient.send(Json.encodeToString(target))
+
+                        if (follow) {
+                            droneManager.calculateFollowData(target)
+                        }
+
                     }
                 } catch (e: Exception) {
                     Log.i(DEBUG, e.message.toString())
@@ -223,6 +230,9 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
 
         mBtnLoad = findViewById(R.id.btn_connect_ws)
         mBtnLoad.setOnClickListener(this)
+
+        mBtnSetOffset = findViewById(R.id.set_offset)
+        mBtnSetOffset.setOnClickListener(this)
 
         mConnectStatusTextView = findViewById(R.id.ConnectStatusTextView)
 
@@ -333,6 +343,23 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
             }
             R.id.btn_start_simulation -> {
                 startSimulation()
+            }
+            R.id.set_offset -> {
+                if (!follow) {
+                    val drone = droneManager.getDroneState("")
+                    droneManager.pidController.offsetX = target.x - drone.x
+                    droneManager.pidController.offsetY = target.y - drone.y
+                    droneManager.pidController.offsetZ = target.z - drone.z
+                    Log.i(DEBUG, "tx: ${target.x} x: ${drone.x}" )
+                    Log.i(DEBUG, "tx: ${target.y} x: ${drone.y}" )
+                    Log.i(DEBUG, "tx: ${target.z} x: ${drone.z}" )
+                    showToast("Offset was set")
+                    follow = true
+                } else {
+                    follow = false
+                }
+
+
             }
             R.id.btn_record -> {
                 droneManager.record = !droneManager.record

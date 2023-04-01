@@ -17,11 +17,11 @@ def create_plot(tests):
         fig = make_subplots(rows=2, cols=1, subplot_titles=( "x", "y"))
         target = [p for p in follower_data if p["id"] == "target"]
         follower = [p for p in follower_data if p["id"] == "kalman"]
-        add_trace(fig, [p["t"] for p in target], [p["x"] for p in target], 1, 1, "targetX")
-        add_trace(fig, [p["t"] for p in follower], [p["x"] for p in follower], 1, 1, "followerX")
+        add_trace(fig, [p["t"] for p in target], [p["vX"] for p in target], 1, 1, "targetX")
+        add_trace(fig, [p["t"] for p in follower], [p["vX"] for p in follower], 1, 1, "followerX")
 
-        add_trace(fig, [p["t"] for p in target], [p["z"] for p in target], 2, 1, "targetY")
-        add_trace(fig, [p["t"] for p in follower], [p["z"] for p in follower], 2, 1, "followerY")
+        add_trace(fig, [p["t"] for p in target], [p["vZ"] for p in target], 2, 1, "targetY")
+        add_trace(fig, [p["t"] for p in follower], [p["vZ"] for p in follower], 2, 1, "followerY")
 
         print(len(target))
         print(len(follower))

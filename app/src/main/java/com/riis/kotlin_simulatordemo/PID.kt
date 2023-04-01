@@ -1,6 +1,5 @@
 package com.riis.kotlin_simulatordemo
 
-import android.util.Log
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.pow
@@ -8,11 +7,11 @@ import kotlin.math.sin
 
 class PID {
     // Gains
-    var Kp = 2.0
+    var Kp = 1.5
 
-    var Kd = 1.5
+    var Kd = 1.2
 
-    var Ki = 0.01
+    var Ki = 0.0
 
     private var Kpx = 2.0
     private var Kpy = 2.0
@@ -60,20 +59,18 @@ class PID {
     var Vy = 0.0
     var Vz = 0.0
 
-    private var mLatitudeOffset = 1.0
-    private var mLongitudeOffset = 0.0
-    private var mAltitudeOffset = 0.0
+    var offsetX = 0.0
+    var offsetY = 0.0
+    var offsetZ = 0.0
 
     private var prevTimestamp: Long = 0
-
-    private var gamma = 0.01
 
     private var i = 0
     fun compute(drone: DroneData, target: DroneData) {
         val currentTimestamp = System.currentTimeMillis()
-        eX = target.x - drone.x + mLatitudeOffset
-        eY = target.y - drone.y + mLongitudeOffset
-        eZ = target.z - drone.z + mAltitudeOffset
+        eX = target.x - (drone.x + offsetX)
+        eY = target.y - (drone.y + offsetY)
+        eZ = target.z - (drone.z + offsetZ)
 
         veX = target.vX - drone.vX
         veY = target.vY - drone.vY
@@ -110,31 +107,31 @@ class PID {
         i++
     }
 
-    fun tuneGains() {
-        val gpX = ((eXfull + eX.pow(2)) / i - (eXfull / (i - 1))) / 0.01
-        val gpY = ((eYfull + eY.pow(2)) / i - (eYfull / (i - 1))) / 0.01
-        val gpZ = ((eZfull + eZ.pow(2)) / i - (eZfull / (i - 1))) / 0.01
-
-        val gdX = ((veXfull + veX.pow(2)) / i - (veXfull / (i - 1))) / 0.01
-        val gdY = ((veYfull + veY.pow(2)) / i - (veYfull / (i - 1))) / 0.01
-        val gdZ = ((veZfull + veZ.pow(2)) / i - (veZfull / (i - 1))) / 0.01
-
-        eXfull += eX.pow(2)
-        eYfull += eY.pow(2)
-        eZfull += eZ.pow(2)
-
-        veXfull += veXfull.pow(2)
-        veYfull += veYfull.pow(2)
-        veZfull += veZfull.pow(2)
-
-        Kpx = max(Kpx - (gamma * gpX), 0.0)
-        Kpy = max(Kpy - (gamma * gpY), 0.0)
-        Kpz = max(Kpz - (gamma * gpZ), 0.0)
-
-        Kdx = max(Kdx - (gamma * gdX), 0.0)
-        Kdy = max(Kdy - (gamma * gdY), 0.0)
-        Kdz = max(Kdz - (gamma * gdZ), 0.0)
-    }
+//    fun tuneGains() {
+//        val gpX = ((eXfull + eX.pow(2)) / i - (eXfull / (i - 1))) / 0.01
+//        val gpY = ((eYfull + eY.pow(2)) / i - (eYfull / (i - 1))) / 0.01
+//        val gpZ = ((eZfull + eZ.pow(2)) / i - (eZfull / (i - 1))) / 0.01
+//
+//        val gdX = ((veXfull + veX.pow(2)) / i - (veXfull / (i - 1))) / 0.01
+//        val gdY = ((veYfull + veY.pow(2)) / i - (veYfull / (i - 1))) / 0.01
+//        val gdZ = ((veZfull + veZ.pow(2)) / i - (veZfull / (i - 1))) / 0.01
+//
+//        eXfull += eX.pow(2)
+//        eYfull += eY.pow(2)
+//        eZfull += eZ.pow(2)
+//
+//        veXfull += veXfull.pow(2)
+//        veYfull += veYfull.pow(2)
+//        veZfull += veZfull.pow(2)
+//
+//        Kpx = max(Kpx - (gamma * gpX), 0.0)
+//        Kpy = max(Kpy - (gamma * gpY), 0.0)
+//        Kpz = max(Kpz - (gamma * gpZ), 0.0)
+//
+//        Kdx = max(Kdx - (gamma * gdX), 0.0)
+//        Kdy = max(Kdy - (gamma * gdY), 0.0)
+//        Kdz = max(Kdz - (gamma * gdZ), 0.0)
+//    }
 
     var targetCommandX = 0.0
     var targetCommandY = 0.0
