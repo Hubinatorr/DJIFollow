@@ -99,12 +99,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             }
 
             override fun onMessage(s: String) {
-                try {
-                    val target = Json.decodeFromString<DroneData>(s)
-                    droneManager.calculateFollowData(target)
-                } catch (e: Exception) {
-                    Log.i(DEBUG, e.message.toString())
-                }
             }
 
             override fun onClose(i: Int, s: String, b: Boolean) {
@@ -183,26 +177,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         mBtnLoad.setOnClickListener(this)
 
         mConnectStatusTextView = findViewById(R.id.ConnectStatusTextView)
-
-        mFrequencyText = findViewById(R.id.frequency)
-        mFrequencyText.addTextChangedListener(object : TextWatcher {
-
-            override fun afterTextChanged(s: Editable) {
-                interval = mFrequencyText.text.toString().toLongOrNull()!!
-            }
-
-            override fun beforeTextChanged(
-                s: CharSequence, start: Int,
-                count: Int, after: Int
-            ) {
-            }
-
-            override fun onTextChanged(
-                s: CharSequence, start: Int,
-                before: Int, count: Int
-            ) {
-            }
-        })
     }
 
     private fun initFlightController() {
@@ -276,26 +250,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 }
             }
             R.id.btn_load -> {
-                showToast("Loading")
-                var normal: List<DroneData> = Json.decodeFromStream(resources.openRawResource(R.raw.normal))
-                for ((i, pos) in normal.withIndex()) {
-                    if (i != 0) {
-                        val dt = (pos.t - normal[i-1].t)/1000.0
-                        Log.i(DEBUG, dt.toString())
-                        kalman.predict(dt)
-                        kalman.update(dt, pos)
 
-                        normal[i].x = kalman.state[0]
-                        normal[i].y = kalman.state[1]
-                        normal[i].z = kalman.state[2]
-                        normal[i].vX = kalman.state[3]
-                        normal[i].vY = kalman.state[4]
-                        normal[i].vZ = kalman.state[5]
-                    }
-                }
-                droneManager.webSocketClient.send(Json.encodeToString(normal))
-
-                showToast("Loaded")
             }
             R.id.btn_start_mission -> {
                 follow = !follow

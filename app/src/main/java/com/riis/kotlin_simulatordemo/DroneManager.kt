@@ -10,73 +10,29 @@ import java.util.*
 import kotlin.math.tanh
 
 class DroneManager {
-    var target: DroneData? = null
-    private var pidController = PID()
-
     lateinit var controller: FlightController
     lateinit var webSocketClient: WebSocketClient
 
-    var tests = TestPipeline()
     var controls = Controls(0, 0, 0, 0)
-
-    var testName = ""
-    var j = 0
-    var i = 0
-    var k = 0
-
     var record = false;
 
-    var mRoll = 0f
-    var mPitch = 0f
-    var mYaw = 0f
-    var mThrottle = 0f
-
-    var x0 = 0.0
-    var y0 = 0.0
-    var t0 = 0L
     fun onStateChange() {
         if (record) {
             webSocketClient.send(Json.encodeToString(getDroneState("target")))
         }
     }
-
-    fun calculateFollowData(target: DroneData) {
-        val drone = getDroneState("follower")
-        pidController.compute(drone, target)
-        val mRoll = (15 * tanh(pidController.Vx / 8)).toFloat()
-        val mPitch = (15 * tanh(pidController.Vy / 8)).toFloat()
-
-
-        controller.sendVirtualStickFlightControlData(
-            FlightControlData(mPitch, mRoll, mYaw, mThrottle)
-        ) { djiError ->
-            if (djiError != null) {
-                Log.i(MainActivity.DEBUG, djiError.description)
-            }
-        }
-
-        controller.sendVirtualStickFlightControlData(
-            FlightControlData(mPitch, mRoll, mYaw, mThrottle)
-        ) { djiError ->
-            if (djiError != null) {
-                Log.i(MainActivity.DEBUG, djiError.description)
-            }
-        }
-
-    }
-
-    fun getDroneState(id: String): DroneData {
+    private fun getDroneState(id: String): DroneData {
         return DroneData(
-            System.currentTimeMillis() - t0,
+            System.currentTimeMillis(),
             id,
             Deg2UTM(
                 controller.state.aircraftLocation.latitude,
                 controller.state.aircraftLocation.longitude
-            ).Northing - x0,
+            ).Northing,
             Deg2UTM(
                 controller.state.aircraftLocation.latitude,
                 controller.state.aircraftLocation.longitude
-            ).Easting - y0,
+            ).Easting,
             controller.state.aircraftLocation.altitude.toDouble(),
             controller.state.velocityX.toDouble(),
             controller.state.velocityY.toDouble(),
