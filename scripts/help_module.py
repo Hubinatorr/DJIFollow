@@ -8,6 +8,7 @@ def get_noise(data, f, max_noise):
         n = sin((2 * pi) / f * (i % f)) * max_noise
         pos["x"] = pos["x"] + n
         pos["y"] = pos["y"] + n
+        pos["z"] = pos["z"] + n
         # pos["vX"] = pos["vX"] + n/2
         # pos["vY"] = pos["vY"] + n/2
     return noise_data

@@ -132,24 +132,24 @@ class PID {
 //        Kdy = max(Kdy - (gamma * gdY), 0.0)
 //        Kdz = max(Kdz - (gamma * gdZ), 0.0)
 //    }
-
-    var targetCommandX = 0.0
-    var targetCommandY = 0.0
-
-    fun computeWithCommand(drone: DroneData, target: DroneData) {
-        var targetHeading = Angle(target.yaw).value
-        var targetCommandSpeedX = ((target.rv/660.0)*15)
-        var targetCommandSpeedY = ((target.rh/660.0)*15)
-
-        var xX = targetCommandSpeedX * cos(Math.toRadians(targetHeading))
-        var yX = targetCommandSpeedX * sin(Math.toRadians(targetHeading))
-
-        var xY = targetCommandSpeedY * cos(Math.toRadians(targetHeading + 90))
-        var yY = targetCommandSpeedY * sin(Math.toRadians(targetHeading + 90))
-
-        targetCommandX = xX + xY
-        targetCommandY = yX + yY
-    }
+//
+//    var targetCommandX = 0.0
+//    var targetCommandY = 0.0
+//
+//    fun computeWithCommand(drone: DroneData, target: DroneData) {
+//        var targetHeading = Angle(target.yaw).value
+//        var targetCommandSpeedX = ((target.rv/660.0)*15)
+//        var targetCommandSpeedY = ((target.rh/660.0)*15)
+//
+//        var xX = targetCommandSpeedX * cos(Math.toRadians(targetHeading))
+//        var yX = targetCommandSpeedX * sin(Math.toRadians(targetHeading))
+//
+//        var xY = targetCommandSpeedY * cos(Math.toRadians(targetHeading + 90))
+//        var yY = targetCommandSpeedY * sin(Math.toRadians(targetHeading + 90))
+//
+//        targetCommandX = xX + xY
+//        targetCommandY = yX + yY
+//    }
 
     private lateinit var prevDrone: DroneData
 }

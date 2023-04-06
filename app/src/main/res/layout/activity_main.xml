@@ -55,10 +55,10 @@
                 android:textSize="10sp" />
 
             <Button
-                android:id="@+id/btn_start_mission"
+                android:id="@+id/btn_init_kalman"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Start Mission"
+                android:text="Init Kalman"
                 android:textSize="10sp" />
 
             <Button

@@ -4,7 +4,7 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 import numpy as np
 
-follower_data = json.load(open(Path(__file__).parent / "resultData/kalman.json", "r"))
+follower_data = json.load(open(Path(__file__).parent / "resultData/kalman_new.json", "r"))
 # follower_data = json.load(open(Path(__file__).parent / "resultData/testtan6.json", "r"))
 
 
@@ -17,8 +17,8 @@ def create_plot(tests):
         fig = make_subplots(rows=2, cols=1, subplot_titles=( "x", "y"))
         target = [p for p in follower_data if p["id"] == "target"]
         follower = [p for p in follower_data if p["id"] == "kalman"]
-        add_trace(fig, [p["t"] for p in target], [p["vX"] for p in target], 1, 1, "targetX")
-        add_trace(fig, [p["t"] for p in follower], [p["vX"] for p in follower], 1, 1, "followerX")
+        add_trace(fig, [p["t"] for p in target], [p["z"] for p in target], 1, 1, "targetX")
+        add_trace(fig, [p["t"] for p in follower], [p["z"] for p in follower], 1, 1, "followerX")
 
         add_trace(fig, [p["t"] for p in target], [p["vZ"] for p in target], 2, 1, "targetY")
         add_trace(fig, [p["t"] for p in follower], [p["vZ"] for p in follower], 2, 1, "followerY")
@@ -33,7 +33,7 @@ def create_plot(tests):
 #     "normal"
 # ]
 tests = [
-    "full",
+    "normal",
 ]
 
 create_plot(tests)

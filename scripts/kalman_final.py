@@ -46,11 +46,10 @@ def get_Q(dt):
                               ])) * dt
 
 
-data = get_noise(json.load(open(Path(__file__).parent / "testData/normal.json", "r")), 15, 2)
-with open(Path(__file__).parent / "testData/normal_noise.json", "w") as myfile:
-    myfile.write(json.dumps(data))
+data = json.load(open(Path(__file__).parent / "testData/normalUp_noise.json", "r"))
 
-real = json.load(open(Path(__file__).parent / "testData/normal.json", "r"))
+real = json.load(open(Path(__file__).parent / "testData/normalUp.json", "r"))
+test = json.load(open(Path(__file__).parent / "resultData/kalman_new.json", "r"))
 
 # init
 
@@ -85,9 +84,9 @@ for i in range(2, len(data)):
     predicted_P = F @ P @ T(F) + Q
     # update
     z = np.array(
-        [data[i]["x"], data[i]["y"], data[i]["z"], data[i]["vX"], data[i]["vY"], data[i]["vZ"],
+        [data[i]["x"], data[i]["y"], data[i]["z"], data[i]["vX"], data[i]["vY"], -data[i]["vZ"],
          (data[i]["vX"] - data[i - 1]["vX"]) / dt, (data[i]["vY"] - data[i - 1]["vY"]) / dt,
-         (data[i]["vZ"] - data[i - 1]["vZ"]) / dt])
+         (-data[i]["vZ"] - -data[i - 1]["vZ"]) / dt])
     I = np.identity(9)
     K = predicted_P @ T(H) @ inv(H @ predicted_P @ T(H) + R)
     state = predicted_state + K @ (z - H @ predicted_state)
@@ -95,13 +94,13 @@ for i in range(2, len(data)):
     states.append(state)
 
 # kotlin = json.load(open(Path(__file__).parent / "resultData/kalman_test.json", "r"))
-
+print([p["z"] for p in test])
 fig = go.Figure()
-fig.add_trace(go.Scatter(x=list(range(len(data))), y=[p["x"] for p in real], mode='lines+markers',
-                         name="real X"))
-fig.add_trace(go.Scatter(x=list(range(len(data))), y=[p["x"] for p in data], mode='lines+markers',
-                         name="measurement X"))
-fig.add_trace(go.Scatter(x=list(range(len(data))), y=[s[0] for s in states], mode='lines+markers',
+fig.add_trace(go.Scatter(x=list(range(len(data))), y=[p["z"] for p in data], mode='lines+markers',
+                         name="data"))
+fig.add_trace(go.Scatter(x=list(range(len(data))), y=[p[2] for p in states], mode='lines+markers',
+                         name="stavy"))
+fig.add_trace(go.Scatter(x=list(range(len(test))), y=[p["z"] for p in test], mode='lines+markers',
                          name="est X"))
 # fig.add_trace(
 #     go.Scatter(x=list(range(len(kotlin))), y=[s["x"] for s in kotlin], mode='lines+markers',
