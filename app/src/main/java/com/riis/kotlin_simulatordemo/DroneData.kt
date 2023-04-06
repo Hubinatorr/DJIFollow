@@ -2,12 +2,6 @@ package com.riis.kotlin_simulatordemo
 
 import kotlinx.serialization.Serializable
 
-data class Controls(
-    var lh: Int,
-    var lv: Int,
-    var rh: Int,
-    var rv: Int
-)
 @Serializable
 data class DroneData(
     var t: Long,
@@ -20,11 +14,7 @@ data class DroneData(
     var vZ: Double,
     val roll: Double,
     val pitch: Double,
-    val yaw: Double,
-    var lh: Int,
-    var lv: Int,
-    var rh: Int,
-    var rv: Int
+    val yaw: Double
 )
 
 

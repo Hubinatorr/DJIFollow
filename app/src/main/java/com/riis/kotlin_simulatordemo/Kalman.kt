@@ -14,12 +14,15 @@ class Kalman {
     private val est_std = mk.ndarray(mk[.1, .1, .3, .1, .1, .3, .1, .1, .3])
     private val gps_std = mk.ndarray(mk[1.0, 1.0, 1.0, .1, .1, .3, .1, .1, .3])
 
+    var initialized = false
+
     var state =
         mk.ndarray(mk[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
     private lateinit var K: D2Array<Double>
     private lateinit var predictedState: D1Array<Double>
     private lateinit var predictedP: D2Array<Double>
+
     var P = mk.ndarray(
         mk[
                 mk[est_std[0].pow(2), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
@@ -93,6 +96,23 @@ class Kalman {
         return res
     }
 
+    fun init(initState: D1Array<Double>) {
+        state = initState
+        P = mk.ndarray(
+            mk[
+                    mk[est_std[0].pow(2), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    mk[0.0, est_std[1].pow(2), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    mk[0.0, 0.0, est_std[2].pow(2), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    mk[0.0, 0.0, 0.0, est_std[3].pow(2), 0.0, 0.0, 0.0, 0.0, 0.0],
+                    mk[0.0, 0.0, 0.0, 0.0, est_std[4].pow(2), 0.0, 0.0, 0.0, 0.0],
+                    mk[0.0, 0.0, 0.0, 0.0, 0.0, est_std[5].pow(2), 0.0, 0.0, 0.0],
+                    mk[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, est_std[6].pow(2), 0.0, 0.0],
+                    mk[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, est_std[7].pow(2), 0.0],
+                    mk[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, est_std[8].pow(2)],
+            ]
+        )
+        initialized = true
+    }
     fun predict(dt: Double) {
         val F = getF(dt)
         val Q = getQ(dt)
@@ -111,8 +131,8 @@ class Kalman {
         val I = mk.identity<Double>(9)
         val inv = H * predictedP * H.transpose() + R
         val zDist = z - mulMV(H,predictedState)
-        K = predictedP * H.transpose() * mk.linalg.inv(inv)
 
+        K = predictedP * H.transpose() * mk.linalg.inv(inv)
         state = predictedState + mulMV(K,zDist)
         P = (I - K * H) * predictedP * (I - K * H).transpose() + K * R * K.transpose()
     }
