@@ -3,10 +3,13 @@ package com.riis.kotlin_simulatordemo
 import android.Manifest
 import android.graphics.SurfaceTexture
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Log
 import android.view.TextureView
 import android.view.View
 import android.widget.Button
+import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.viewModels
@@ -29,7 +32,6 @@ import dji.sdk.sdkmanager.DJISDKManager
 import dji.thirdparty.org.java_websocket.client.WebSocketClient
 import dji.thirdparty.org.java_websocket.handshake.ServerHandshake
 import kotlinx.coroutines.launch
-import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -68,9 +70,13 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
     private val viewModel by viewModels<MainViewModel>()
 
     private var droneManager = DroneManager()
-    private var kalman: Kalman = Kalman()
+    private lateinit var kalmanDrone: Kalman
+    private lateinit var kalmanTarget: Kalman
 
-    private var startMission = false
+    private lateinit var targetGPS: DroneData
+    private lateinit var droneGPS: DroneData
+
+    private var kalmanInit = false
     private var follow = false
 
     companion object {
@@ -109,8 +115,6 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
         initUi()
     }
 
-    private lateinit var target: DroneData
-    private lateinit var prevTarget: DroneData
     private fun createWebSocketClient() {
         val uri: URI = try {
             URI("ws://147.229.193.119:8000")
@@ -125,31 +129,26 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
 
             override fun onMessage(s: String) {
                 try {
-                    prevTarget = if (!::prevTarget.isInitialized) {
-                        Json.decodeFromString(s)
-                    } else {
-                        target
-                    }
-                    target = Json.decodeFromString(s)
-
-                    if (startMission) {
-                        val dt = (target.t - prevTarget.t) / 1000.0
-
-                        kalman.predict(dt)
-                        kalman.update(dt, target)
-                        target.x = kalman.state[0]
-                        target.y = kalman.state[1]
-                        target.z = kalman.state[2]
-                        target.vX = kalman.state[3]
-                        target.vY = kalman.state[4]
-                        target.vZ = kalman.state[5]
-                        target.id = "kalman"
+                    val newTargetGPS = Json.decodeFromString<DroneData>(s)
+                    if (kalmanInit) {
+                        val dt = (newTargetGPS.t - targetGPS.t) / 1000.0
+                        kalmanTarget.predict(dt)
+                        kalmanTarget.update(dt, newTargetGPS)
+                        targetGPS = newTargetGPS
+                        targetGPS.x = kalmanTarget.state[0]
+                        targetGPS.y = kalmanTarget.state[1]
+                        targetGPS.z = kalmanTarget.state[2]
+                        targetGPS.vX = kalmanTarget.state[3]
+                        targetGPS.vY = kalmanTarget.state[4]
+                        targetGPS.vZ = kalmanTarget.state[5]
 
                         if (follow) {
-                            droneManager.calculateFollowData(target)
+                            droneManager.calculateFollowData(targetGPS, droneGPS)
                         }
-
+                    } else {
+                        targetGPS = newTargetGPS
                     }
+
                 } catch (e: Exception) {
                     Log.i(DEBUG, e.message.toString())
                 }
@@ -234,6 +233,40 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
         mBtnSetOffset = findViewById(R.id.set_offset)
         mBtnSetOffset.setOnClickListener(this)
 
+        findViewById<EditText>(R.id.kd).addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                try {
+                    droneManager.pidController.Kd = s.toString().toDouble()
+                    showToast("changed kd")
+                } catch (e: Exception) {
+
+                }
+            }
+
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
+            }
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+            }
+        })
+
+        findViewById<EditText>(R.id.kp).addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                try {
+                    droneManager.pidController.Kp = s.toString().toDouble()
+                    showToast("changed kp")
+                } catch (e: Exception) {
+
+                }
+            }
+
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
+            }
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+            }
+        })
+
         mConnectStatusTextView = findViewById(R.id.ConnectStatusTextView)
 
         videoSurface = findViewById(R.id.video_previewer_surface)
@@ -252,11 +285,29 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
             it.verticalControlMode = VerticalControlMode.VELOCITY
             it.rollPitchCoordinateSystem = FlightCoordinateSystem.GROUND
             val callback = FlightControllerState.Callback {
-                val state = droneManager.getDroneState("target")
-                x.text = state.x.toString()
-                y.text = state.y.toString()
-                z.text = state.z.toString()
-                droneManager.onStateChange()
+                val newDroneGPS = droneManager.getDroneState("")
+                if (droneManager.record) {
+                    droneManager.webSocketClient.send(Json.encodeToString(newDroneGPS))
+                }
+
+                if (kalmanInit) {
+                    val dt = (newDroneGPS.t - droneGPS.t) / 1000.0
+                    kalmanDrone.predict(dt)
+                    kalmanDrone.update(dt, newDroneGPS)
+                    droneGPS = newDroneGPS
+                    droneGPS.x = kalmanDrone.state[0]
+                    droneGPS.y = kalmanDrone.state[1]
+                    droneGPS.z = kalmanDrone.state[2]
+                    droneGPS.vX = kalmanDrone.state[3]
+                    droneGPS.vY = kalmanDrone.state[4]
+                    droneGPS.vZ = kalmanDrone.state[5]
+                } else {
+                    droneGPS = newDroneGPS
+                }
+
+                x.text = droneGPS.x.toString()
+                y.text = droneGPS.y.toString()
+                z.text = droneGPS.z.toString()
             }
             it.setStateCallback(callback)
             droneManager.controller = it
@@ -322,37 +373,42 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
                 createWebSocketClient()
             }
             R.id.btn_start_mission -> {
-                if (::prevTarget.isInitialized && ::target.isInitialized) {
-                    val ax = (target.vX - prevTarget.vX) / ((target.t - prevTarget.t)/1000.0)
-                    val ay = (target.vY - prevTarget.vY) / ((target.t - prevTarget.t)/1000.0)
-                    val az = (target.vZ - prevTarget.vZ) / ((target.t - prevTarget.t)/1000.0)
+                kalmanDrone = Kalman()
+                kalmanDrone.state = mk.ndarray(mk[
+                        droneGPS.x,
+                        droneGPS.y,
+                        droneGPS.z,
+                        droneGPS.vX,
+                        droneGPS.vY,
+                        droneGPS.vZ,
+                        0.0,
+                        0.0,
+                        0.0
+                ])
 
-                    kalman.state = mk.ndarray(mk[
-                            target.x,
-                            target.y,
-                            target.z,
-                            target.vX,
-                            target.vY,
-                            target.vZ,
-                            ax,
-                            ay,
-                            az
-                    ])
-                    startMission = true
-                }
+                kalmanTarget = Kalman()
+                kalmanTarget.state = mk.ndarray(mk[
+                        targetGPS.x,
+                        targetGPS.y,
+                        targetGPS.z,
+                        targetGPS.vX,
+                        targetGPS.vY,
+                        targetGPS.vZ,
+                        0.0,
+                        0.0,
+                        0.0
+                ])
+                kalmanInit = true
+
             }
             R.id.btn_start_simulation -> {
                 startSimulation()
             }
             R.id.set_offset -> {
                 if (!follow) {
-                    val drone = droneManager.getDroneState("")
-                    droneManager.pidController.offsetX = target.x - drone.x
-                    droneManager.pidController.offsetY = target.y - drone.y
-                    droneManager.pidController.offsetZ = target.z - drone.z
-                    Log.i(DEBUG, "tx: ${target.x} x: ${drone.x}" )
-                    Log.i(DEBUG, "tx: ${target.y} x: ${drone.y}" )
-                    Log.i(DEBUG, "tx: ${target.z} x: ${drone.z}" )
+                    droneManager.pidController.offsetX = targetGPS.x - droneGPS.x
+                    droneManager.pidController.offsetY = targetGPS.y - droneGPS.y
+                    droneManager.pidController.offsetZ = targetGPS.z - droneGPS.z
                     showToast("Offset was set")
                     follow = true
                 } else {

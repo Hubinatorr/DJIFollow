@@ -36,6 +36,7 @@
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent" />
+
         </androidx.constraintlayout.widget.ConstraintLayout>
 
         <LinearLayout
@@ -73,6 +74,20 @@
                 android:layout_height="wrap_content"
                 android:text="Start Sim"
                 android:textSize="10sp" />
+
+            <EditText
+                android:id="@+id/kp"
+                android:layout_width="108dp"
+                android:layout_height="60dp"
+                android:ems="10"
+                android:inputType="numberDecimal" />
+
+            <EditText
+                android:id="@+id/kd"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:ems="10"
+                android:inputType="numberDecimal" />
         </LinearLayout>
 
         <LinearLayout

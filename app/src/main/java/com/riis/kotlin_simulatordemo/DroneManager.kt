@@ -40,8 +40,7 @@ class DroneManager {
         }
     }
 
-    fun calculateFollowData(target: DroneData) {
-        val drone = getDroneState("follower")
+    fun calculateFollowData(target: DroneData, drone: DroneData ) {
         pidController.compute(drone, target)
         mRoll = pidController.Vx.coerceIn(-5.0, 5.0).toFloat()
         mPitch = pidController.Vy.coerceIn(-5.0, 5.0).toFloat()

@@ -9,7 +9,7 @@ class PID {
     // Gains
     var Kp = 1.5
 
-    var Kd = 1.2
+    var Kd = 0.5
 
     var Ki = 0.0
 
@@ -51,7 +51,7 @@ class PID {
 
     // Previous Position Error
     private var eXprev = 0.0
-    private var eYprev = 1.0
+    private var eYprev = 0.0
     private var eZprev = 0.0
 
     // Output Velocity
