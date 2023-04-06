@@ -50,6 +50,8 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
     private lateinit var mBtnInitKalman: Button
     private lateinit var mBtnStartSimulator: Button
 
+    private lateinit var mBtnConnect: Button
+
     private lateinit var webSocketClient: WebSocketClient
 
     private var receivedVideoDataListener: VideoFeeder.VideoDataListener? = null
@@ -141,6 +143,9 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
 
         mBtnStartSimulator = findViewById(R.id.btn_start_simulation)
         mBtnStartSimulator.setOnClickListener(this)
+
+        mBtnConnect = findViewById(R.id.btn_connect_ws)
+        mBtnConnect.setOnClickListener(this)
 
         mConnectStatusTextView = findViewById(R.id.ConnectStatusTextView)
 
