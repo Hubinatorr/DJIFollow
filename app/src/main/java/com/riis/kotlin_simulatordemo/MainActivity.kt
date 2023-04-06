@@ -62,7 +62,7 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
 
     private var kalman = Kalman()
     private lateinit var GPS : DroneData
-    private var record = true
+    private var record = false
 
     companion object {
         const val DEBUG = "drone_debug"
@@ -214,7 +214,7 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
             state.velocityZ.toDouble(),
             state.attitude.roll,
             state.attitude.pitch,
-            state.attitude.yaw,
+            state.attitude.yaw,0,0,0,0
         )
     }
 
