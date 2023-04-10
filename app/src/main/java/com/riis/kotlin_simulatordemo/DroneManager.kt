@@ -18,10 +18,10 @@ class DroneManager {
 
     fun calculateFollowData(target: DroneData, drone: DroneData ) {
         pidController.compute(drone, target)
-        mRoll = (tanh(pidController.Vx)).toFloat()
-        mPitch = (tanh(pidController.Vy)).toFloat()
-//        mRoll = pidController.Vx.coerceIn(-15.0, 15.0).toFloat()
-//        mPitch = pidController.Vy.coerceIn(-15.0, 15.0).toFloat()
+//        mRoll = (tanh(pidController.Vx)).toFloat()
+//        mPitch = (tanh(pidController.Vy)).toFloat()
+        mRoll = pidController.Vx.coerceIn(-5.0, 5.0).toFloat()
+        mPitch = pidController.Vy.coerceIn(-5.0, 5.0).toFloat()
 
         controller.sendVirtualStickFlightControlData(
             FlightControlData(mPitch, mRoll, mYaw, mThrottle)

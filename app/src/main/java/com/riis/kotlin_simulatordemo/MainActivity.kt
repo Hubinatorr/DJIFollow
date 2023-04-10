@@ -223,7 +223,7 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
                 }
             }
             it.setStateCallback(callback)
-
+            droneManager.controller = it
         }
     }
 
@@ -252,6 +252,33 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
 
     override fun onClick(v: View?) {
         when (v?.id) {
+            R.id.btn_enable_virtual_stick -> {
+                viewModel.getFlightController()?.let { controller ->
+                    controller.setVirtualStickModeEnabled(true) { djiError ->
+                        if (djiError != null) {
+                            Log.i(DEBUG, djiError.description)
+                            showToast("Virtual Stick: Could not enable virtual stick")
+                        } else {
+                            Log.i(DEBUG, "Enable Virtual Stick Success")
+                            showToast("Virtual Sticks Enabled")
+                        }
+                    }
+                }
+
+            }
+            R.id.btn_disable_virtual_stick -> {
+                viewModel.getFlightController()?.let { controller ->
+                    controller.setVirtualStickModeEnabled(false) { djiError ->
+                        if (djiError != null) {
+                            Log.i(DEBUG, djiError.description)
+                            showToast("Virtual Stick: Could not disable virtual stick")
+                        } else {
+                            Log.i(DEBUG, "Disable Virtual Stick Success")
+                            showToast("Virtual Sticks Disabled")
+                        }
+                    }
+                }
+            }
             R.id.btn_take_off -> {
                 viewModel.getFlightController()?.let { controller ->
                     controller.startTakeoff { djiError ->

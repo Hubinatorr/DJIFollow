@@ -125,7 +125,7 @@ class Kalman {
         val z = mk.ndarray(mk[
                     data.x, data.y, data.z,
                     data.vX, data.vY, -data.vZ,
-                    (data.vX - prevData.vX) / dt, (data.vY - prevData.vY) / dt, (-data.vZ - -prevData.vZ) / dt]
+                    (data.vX - prevData.vX) / dt, (data.vY - prevData.vY) / dt, -(data.vZ - prevData.vZ) / dt]
             )
         prevData = data
         val I = mk.identity<Double>(9)
