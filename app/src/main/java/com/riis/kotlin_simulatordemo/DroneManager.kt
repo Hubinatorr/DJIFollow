@@ -15,14 +15,13 @@ class DroneManager {
     var mYaw = 0f
     var mThrottle = 0f
 
-
     fun calculateFollowData(target: DroneData, drone: DroneData ) {
         pidController.compute(drone, target)
 //        mRoll = (tanh(pidController.Vx)).toFloat()
 //        mPitch = (tanh(pidController.Vy)).toFloat()
         mRoll = pidController.Vx.coerceIn(-5.0, 5.0).toFloat()
         mPitch = pidController.Vy.coerceIn(-5.0, 5.0).toFloat()
-
+        mThrottle = -pidController.Vz.coerceIn(-3.0, 3.0).toFloat()
         controller.sendVirtualStickFlightControlData(
             FlightControlData(mPitch, mRoll, mYaw, mThrottle)
         ) { djiError ->

@@ -12,13 +12,6 @@ data class DroneData(
     var vX: Double,
     var vY: Double,
     var vZ: Double,
-    val roll: Double,
-    val pitch: Double,
-    val yaw: Double,
-    var lh: Int,
-    var lv: Int,
-    var rh: Int,
-    var rv: Int
 )
 
 

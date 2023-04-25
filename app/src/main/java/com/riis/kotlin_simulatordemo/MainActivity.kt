@@ -1,6 +1,7 @@
 package com.riis.kotlin_simulatordemo
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.graphics.SurfaceTexture
 import android.os.Bundle
 import android.text.Editable
@@ -60,7 +61,6 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
     private lateinit var mBtnRecord: Button
     private lateinit var mBtnInitKalman: Button
     private lateinit var mBtnStartSimulator: Button
-    private lateinit var mBtnSetOffset: Button
 
     private lateinit var mBtnConnect: Button
 
@@ -77,9 +77,9 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
     private lateinit var GPS : DroneData
     private lateinit var target : DroneData
 
-    private var record = true
     private var follow = false
-
+    private var record = false
+    private var ws_connected = false
     companion object {
         const val DEBUG = "drone_debug"
         const val RECORD = "drone_record"
@@ -126,6 +126,7 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
         webSocketClient = object : WebSocketClient(uri) {
             override fun onOpen(serverHandshake: ServerHandshake) {
                 ws.text = "ws connected"
+                ws_connected = true
             }
 
             override fun onMessage(s: String) {
@@ -138,10 +139,12 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
 
             override fun onClose(i: Int, s: String, b: Boolean) {
                 ws.text = "ws disconnected"
+                ws_connected = false
             }
 
             override fun onError(e: Exception) {
                 ws.text = "ws error connection"
+                ws_connected = false
             }
         }
         webSocketClient.connect()
@@ -149,7 +152,6 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
 
 
     private fun initUi() {
-
         mBtnEnableVirtualStick = findViewById(R.id.btn_enable_virtual_stick)
         mBtnEnableVirtualStick.setOnClickListener(this)
 
@@ -168,8 +170,6 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
         mBtnInitKalman = findViewById(R.id.btn_init_kalman)
         mBtnInitKalman.setOnClickListener(this)
 
-        mBtnSetOffset = findViewById(R.id.set_offset)
-        mBtnSetOffset.setOnClickListener(this)
 
         mBtnStartSimulator = findViewById(R.id.btn_start_simulation)
         mBtnStartSimulator.setOnClickListener(this)
@@ -182,6 +182,47 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
         videoSurface = findViewById(R.id.video_previewer_surface)
         videoSurface.surfaceTextureListener = this
 
+        findViewById<EditText>(R.id.kd).addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                try {
+                    droneManager.pidController.Kd = s.toString().toDouble()
+                    showToast("Changed kd")
+                } catch (e: Exception) {
+                    showToast("Error changing kd")
+                }
+            }
+
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
+        findViewById<EditText>(R.id.kp).addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                try {
+                    droneManager.pidController.Kp = s.toString().toDouble()
+                    showToast("Changed kp")
+                } catch (e: Exception) {
+                    showToast("Error changing kp")
+                }
+            }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
+        findViewById<EditText>(R.id.ki).addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                try {
+                    droneManager.pidController.Ki = s.toString().toDouble()
+                    showToast("Error changing ki")
+                } catch (e: Exception) {
+
+                }
+            }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
+
         x = findViewById(R.id.x)
         y = findViewById(R.id.y)
         z = findViewById(R.id.z)
@@ -189,13 +230,16 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
         ws = findViewById(R.id.ws)
     }
 
+    @SuppressLint("SetTextI18n")
     private fun initFlightController() {
         viewModel.getFlightController()?.let {
             it.rollPitchControlMode = RollPitchControlMode.VELOCITY
             it.yawControlMode = YawControlMode.ANGULAR_VELOCITY
             it.verticalControlMode = VerticalControlMode.VELOCITY
             it.rollPitchCoordinateSystem = FlightCoordinateSystem.GROUND
+
             val callback = FlightControllerState.Callback { state ->
+
                 val newGPS = getDroneState(state)
                 if (kalman.initialized) {
                     val dt = (newGPS.t - GPS.t) / 1000.0
@@ -208,18 +252,26 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
                     GPS.vX = kalman.state[3]
                     GPS.vY = kalman.state[4]
                     GPS.vZ = kalman.state[5]
-                    x.text = "K: ${GPS.x}"
-                    y.text = "K: ${GPS.y}"
-                    z.text = "K: ${GPS.z}"
-                    if (follow) {
-                        droneManager.calculateFollowData(target, GPS)
-                    }
-
                 } else {
                     GPS = newGPS
-                    x.text = GPS.x.toString()
-                    y.text = GPS.y.toString()
-                    z.text = GPS.z.toString()
+                }
+
+                if (follow) {
+                    droneManager.calculateFollowData(target, GPS)
+                }
+
+                x.text = "K: ${GPS.x}"
+                y.text = "K: ${GPS.y}"
+                z.text = "K: ${GPS.z}"
+
+                if (record) {
+                    if (ws_connected) {
+                        try {
+                            webSocketClient.send(Json.encodeToString(GPS))
+                        } catch (e: Exception) {
+                            showToast(e.message!!)
+                        }
+                    }
                 }
             }
             it.setStateCallback(callback)
@@ -242,11 +294,7 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
             state.aircraftLocation.altitude.toDouble(),
             state.velocityX.toDouble(),
             state.velocityY.toDouble(),
-            state.velocityZ.toDouble(),
-            state.attitude.roll,
-            state.attitude.pitch,
-            state.attitude.yaw,
-            0,0,0,0
+            state.velocityZ.toDouble()
         )
     }
 
@@ -259,8 +307,12 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
                             Log.i(DEBUG, djiError.description)
                             showToast("Virtual Stick: Could not enable virtual stick")
                         } else {
-                            Log.i(DEBUG, "Enable Virtual Stick Success")
-                            showToast("Virtual Sticks Enabled")
+                            droneManager.pidController.offsetX = target.x - GPS.x
+                            droneManager.pidController.offsetY = target.y - GPS.y
+                            droneManager.pidController.offsetZ = target.z - GPS.z
+
+                            follow = true
+                            showToast("Follow started")
                         }
                     }
                 }
@@ -272,9 +324,11 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
                         if (djiError != null) {
                             Log.i(DEBUG, djiError.description)
                             showToast("Virtual Stick: Could not disable virtual stick")
+                            follow = false
                         } else {
                             Log.i(DEBUG, "Disable Virtual Stick Success")
                             showToast("Virtual Sticks Disabled")
+                            follow = false
                         }
                     }
                 }
@@ -317,18 +371,7 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
                 startSimulation()
             }
             R.id.btn_record -> {
-                follow = !follow
 
-                if (follow) {
-                    showToast("follow started")
-                } else {
-                    showToast("follow stopped")
-                }
-            }
-            R.id.set_offset -> {
-                droneManager.pidController.offsetX = target.x - GPS.x
-                droneManager.pidController.offsetY = target.y - GPS.y
-                droneManager.pidController.offsetZ = target.z - GPS.z
             }
         }
     }
