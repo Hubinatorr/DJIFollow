@@ -241,8 +241,11 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
             val callback = FlightControllerState.Callback { state ->
 
                 val newGPS = getDroneState(state)
+                newGPS.vZ = -newGPS.vZ
+
                 if (kalman.initialized) {
                     val dt = (newGPS.t - GPS.t) / 1000.0
+
                     kalman.predict(dt)
                     kalman.update(dt, newGPS)
                     GPS = newGPS
@@ -252,17 +255,19 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
                     GPS.vX = kalman.state[3]
                     GPS.vY = kalman.state[4]
                     GPS.vZ = kalman.state[5]
+                    x.text = "K: ${GPS.x}"
+                    y.text = "K: ${GPS.y}"
+                    z.text = "K: ${GPS.z}"
                 } else {
                     GPS = newGPS
+                    x.text = "${GPS.x}"
+                    y.text = "${GPS.y}"
+                    z.text = "${GPS.z}"
                 }
 
                 if (follow) {
                     droneManager.calculateFollowData(target, GPS)
                 }
-
-                x.text = "K: ${GPS.x}"
-                y.text = "K: ${GPS.y}"
-                z.text = "K: ${GPS.z}"
 
                 if (record) {
                     if (ws_connected) {
@@ -371,7 +376,13 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
                 startSimulation()
             }
             R.id.btn_record -> {
+                record = !record
 
+                if (record) {
+                    showToast("Record stated")
+                } else {
+                    showToast("Record stopped")
+                }
             }
         }
     }
