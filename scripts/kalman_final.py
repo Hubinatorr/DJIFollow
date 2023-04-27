@@ -18,7 +18,7 @@ P = np.array([[est_std[0] ** 2, 0, 0, 0, 0, 0, 0, 0, 0],
               [0, 0, 0, 0, 0, 0, 0, 0, est_std[8] ** 2],
               ])
 
-gps_std = np.array([1, 1, 300, .1, .1, .3, .1, .1, .3])
+gps_std = np.array([1.0, 1.0, 1.0, .1, .1, .3, .1, .1, .3])
 R = np.array([[gps_std[0] ** 2, 0, 0, 0, 0, 0, 0, 0, 0],
               [0, gps_std[1] ** 2, 0, 0, 0, 0, 0, 0, 0],
               [0, 0, gps_std[2] ** 2, 0, 0, 0, 0, 0, 0],
@@ -46,11 +46,7 @@ def get_Q(dt):
                               ])) * dt
 
 
-data = json.load(open(Path(__file__).parent / "testData/normalUp_noise.json", "r"))
-
-real = json.load(open(Path(__file__).parent / "testData/normalUp.json", "r"))
-test = json.load(open(Path(__file__).parent / "resultData/kalman_new.json", "r"))
-
+data = json.load(open(Path(__file__).parent / "testData/up.json", "r"))
 # init
 
 prev = np.array(
@@ -78,30 +74,31 @@ for i in range(2, len(data)):
                   ])
     Q = get_Q(dt)
 
+    data[i]["vZ"] = -data[i]["vZ"]
+
     H = np.identity(9)
     # predict
     predicted_state = F @ state
     predicted_P = F @ P @ T(F) + Q
     # update
     z = np.array(
-        [data[i]["x"], data[i]["y"], data[i]["z"], data[i]["vX"], data[i]["vY"], -data[i]["vZ"],
+        [data[i]["x"], data[i]["y"], data[i]["z"], data[i]["vX"], data[i]["vY"], data[i]["vZ"],
          (data[i]["vX"] - data[i - 1]["vX"]) / dt, (data[i]["vY"] - data[i - 1]["vY"]) / dt,
-         (-data[i]["vZ"] - -data[i - 1]["vZ"]) / dt])
+         (data[i]["vZ"] - data[i - 1]["vZ"]) / dt])
     I = np.identity(9)
     K = predicted_P @ T(H) @ inv(H @ predicted_P @ T(H) + R)
     state = predicted_state + K @ (z - H @ predicted_state)
     P = (I - K @ H) @ predicted_P @ T(I - K @ H) + K @ R @ T(K)
     states.append(state)
 
-# kotlin = json.load(open(Path(__file__).parent / "resultData/kalman_test.json", "r"))
-print([p["z"] for p in test])
+kotlin = json.load(open(Path(__file__).parent / "resultData/kalmanTestNew.json", "r"))
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=list(range(len(data))), y=[p["z"] for p in data], mode='lines+markers',
                          name="data"))
 fig.add_trace(go.Scatter(x=list(range(len(data))), y=[p[2] for p in states], mode='lines+markers',
                          name="stavy"))
-fig.add_trace(go.Scatter(x=list(range(len(test))), y=[p["z"] for p in test], mode='lines+markers',
-                         name="est X"))
+fig.add_trace(go.Scatter(x=list(range(len(kotlin))), y=[p["z"] for p in kotlin if p["id"] == "GPS"], mode='lines+markers',
+                         name="kotlin"))
 # fig.add_trace(
 #     go.Scatter(x=list(range(len(kotlin))), y=[s["x"] for s in kotlin], mode='lines+markers',
 #                name="est kotlin X"))

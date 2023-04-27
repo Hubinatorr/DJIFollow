@@ -1,5 +1,6 @@
 package com.riis.kotlin_simulatordemo
 
+import android.util.Log
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.pow
@@ -83,9 +84,15 @@ class PID {
             iZ += ((eZ + eZprev)/2) * deltaT
         }
 
+        Log.i(MainActivity.DEBUG, "${drone.z},${target.z} ${drone.vZ},${target.vZ}")
+
         Vx = Kp * eX /**/ + Ki * iX /**/ + Kd * veX
         Vy = Kp * eY /**/ + Ki * iY /**/ + Kd * veY
         Vz = Kp * eZ /**/ + Ki * iZ /**/ + Kd * veZ
+
+
+        Log.i(MainActivity.DEBUG, "Vz: ${Vz}")
+
 
         val saturationX = (Vx > 15.0 || Vx < -15.0)
         val saturationY = (Vy > 15.0 || Vy < -15.0)

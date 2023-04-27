@@ -21,7 +21,7 @@ class DroneManager {
 //        mPitch = (tanh(pidController.Vy)).toFloat()
         mRoll = pidController.Vx.coerceIn(-5.0, 5.0).toFloat()
         mPitch = pidController.Vy.coerceIn(-5.0, 5.0).toFloat()
-        mThrottle = -pidController.Vz.coerceIn(-3.0, 3.0).toFloat()
+        mThrottle = (target.z - pidController.offsetZ).toFloat()
         controller.sendVirtualStickFlightControlData(
             FlightControlData(mPitch, mRoll, mYaw, mThrottle)
         ) { djiError ->
