@@ -14,4 +14,3 @@ data class DroneData(
     var vZ: Double,
 )
 
-

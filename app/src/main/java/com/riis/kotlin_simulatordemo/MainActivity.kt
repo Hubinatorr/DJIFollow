@@ -37,12 +37,15 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
+import org.jetbrains.kotlinx.multik.api.linalg.dot
 import org.jetbrains.kotlinx.multik.api.mk
 import org.jetbrains.kotlinx.multik.api.ndarray
 import org.jetbrains.kotlinx.multik.ndarray.data.get
+import org.jetbrains.kotlinx.multik.ndarray.operations.times
 import java.net.URI
 import java.net.URISyntaxException
 import java.util.*
+import kotlin.math.roundToInt
 
 
 class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, View.OnClickListener {
@@ -60,6 +63,7 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
 
     private lateinit var mBtnRecord: Button
     private lateinit var mBtnInitKalman: Button
+    private lateinit var mBtnStartTest: Button
     private lateinit var mBtnStartSimulator: Button
 
     private lateinit var mBtnConnect: Button
@@ -170,6 +174,8 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
         mBtnInitKalman = findViewById(R.id.btn_init_kalman)
         mBtnInitKalman.setOnClickListener(this)
 
+        mBtnStartTest = findViewById(R.id.btn_start_test)
+        mBtnStartTest.setOnClickListener(this)
 
         mBtnStartSimulator = findViewById(R.id.btn_start_simulation)
         mBtnStartSimulator.setOnClickListener(this)
@@ -249,12 +255,7 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
                     kalman.predict(dt)
                     kalman.update(dt, newGPS)
                     GPS = newGPS
-                    GPS.x = kalman.state[0]
-                    GPS.y = kalman.state[1]
-                    GPS.z = kalman.state[2]
-                    GPS.vX = kalman.state[3]
-                    GPS.vY = kalman.state[4]
-                    GPS.vZ = kalman.state[5]
+
                     x.text = "K: ${GPS.x}"
                     y.text = "K: ${GPS.y}"
                     z.text = "K: ${GPS.z}"
@@ -272,6 +273,7 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
                 if (record) {
                     if (ws_connected) {
                         try {
+                            GPS.id = "Target"
                             webSocketClient.send(Json.encodeToString(GPS))
                         } catch (e: Exception) {
                             showToast(e.message!!)
@@ -382,6 +384,47 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
                     showToast("Record stated")
                 } else {
                     showToast("Record stopped")
+                }
+            }
+            R.id.btn_start_test -> {
+                var testData = Json.decodeFromStream<List<DroneData>>(resources.openRawResource(R.raw.full))
+                kalman = Kalman()
+                kalman.prevData = testData[0]
+                kalman.init(mk.ndarray(mk[testData[0].x, testData[0].y, testData[0].z, testData[0].vX, testData[0].vY, testData[0].vZ, 0.0, 0.0, 0.0]))
+                var GPS = testData[0]
+                var first = true
+                for (data in testData) {
+                    if (first) {
+                        first = false
+                    } else {
+                        val newGPS = data
+                        newGPS.vZ = -newGPS.vZ
+                        newGPS.id = "KalmanResult"
+                        val dt = (newGPS.t - GPS.t) / 1000.0
+
+                        kalman.predict(dt)
+                        kalman.update(dt, newGPS)
+                        GPS = newGPS
+                        GPS.x = kalman.state[0]
+                        GPS.y = kalman.state[1]
+                        GPS.z = kalman.state[2]
+                        GPS.vX = kalman.state[3]
+                        GPS.vY = kalman.state[4]
+                        GPS.vZ = kalman.state[5]
+
+//                        val fGPS = DroneDataFull(GPS.t, "KalmanResult",
+//                            kalman.state[2],
+//                            kalman.state[1],
+//                            kalman.state[0],
+//                            kalman.state[5],
+//                            kalman.state[4],
+//                            kalman.state[3],
+//                            kalman.state[8],
+//                            kalman.state[7],
+//                            kalman.state[6],
+//                        )
+                        webSocketClient.send(Json.encodeToString(GPS))
+                    }
                 }
             }
         }

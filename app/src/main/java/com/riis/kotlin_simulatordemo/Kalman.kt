@@ -1,12 +1,15 @@
 package com.riis.kotlin_simulatordemo
 
+import android.util.Log
 import org.jetbrains.kotlinx.multik.api.*
+import org.jetbrains.kotlinx.multik.api.linalg.dot
 import org.jetbrains.kotlinx.multik.api.linalg.inv
 import org.jetbrains.kotlinx.multik.ndarray.data.*
 import org.jetbrains.kotlinx.multik.ndarray.operations.minus
 import org.jetbrains.kotlinx.multik.ndarray.operations.plus
 import org.jetbrains.kotlinx.multik.ndarray.operations.times
 import kotlin.math.pow
+import kotlin.math.roundToInt
 
 class Kalman {
     private val q_std = mk.ndarray(mk[0.05, 0.05, 0.05, 0.2, 0.2, 0.1, 0.2, 0.2, 0.1])
@@ -115,9 +118,8 @@ class Kalman {
     fun predict(dt: Double) {
         val F = getF(dt)
         val Q = getQ(dt)
-
         predictedState = mulMV(F, state)
-        predictedP = F * P * F.transpose() + Q
+        predictedP = ((F dot P) dot F.transpose()) + Q
     }
 
     lateinit var prevData: DroneData
@@ -129,11 +131,11 @@ class Kalman {
             )
         prevData = data
         val I = mk.identity<Double>(9)
-        val inv = H * predictedP * H.transpose() + R
+        val inv = ((H dot predictedP) dot H.transpose()) + R
         val zDist = z - mulMV(H,predictedState)
 
-        K = predictedP * H.transpose() * mk.linalg.inv(inv)
-        state = predictedState + mulMV(K,zDist)
-        P = (I - K * H) * predictedP * (I - K * H).transpose() + K * R * K.transpose()
+        K = (predictedP dot H.transpose()) dot mk.linalg.inv(inv)
+        state = predictedState + mulMV(K, zDist)
+        P = (((I - (K dot H)) dot predictedP) dot (I - (K dot H)).transpose()) + ((K dot R) dot K.transpose())
     }
 }

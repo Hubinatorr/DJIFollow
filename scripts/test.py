@@ -5,11 +5,8 @@ import sys
 
 path = sys.argv[1]
 data = json.load(open(Path(__file__).parent / path, "r"))
+data = [p for p in data if p["id"]=="GPS"]
 
-
-
-for pos in data:
-    pos["z"] = pos["z"] + 1.0
 
 path = sys.argv[1]
 with open(Path(__file__).parent / path, "w") as myfile:

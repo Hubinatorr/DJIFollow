@@ -75,6 +75,13 @@
                 android:text="Start Sim"
                 android:textSize="10sp" />
 
+            <Button
+                android:id="@+id/btn_start_test"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Start Test"
+                android:textSize="10sp" />
+
         </LinearLayout>
 
         <LinearLayout
