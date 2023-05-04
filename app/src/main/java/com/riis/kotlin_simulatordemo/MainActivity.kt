@@ -1,15 +1,12 @@
 package com.riis.kotlin_simulatordemo
 
 import android.Manifest
-import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.SurfaceTexture
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
-import android.util.Log
 import android.view.TextureView
-import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
@@ -40,51 +37,36 @@ import org.jetbrains.kotlinx.multik.api.mk
 import org.jetbrains.kotlinx.multik.api.ndarray
 import java.net.URI
 import java.net.URISyntaxException
-import java.util.*
 
 
 class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener {
-    private lateinit var mConnectStatusTextView: TextView
-    private lateinit var x: TextView
-    private lateinit var y: TextView
-    private lateinit var z: TextView
-    private lateinit var ws: TextView
-
-    private lateinit var mBtnEnableVirtualStick: Button
-    private lateinit var mBtnDisableVirtualStick: Button
-    private lateinit var mBtnTakeOff: Button
-    private lateinit var mBtnLand: Button
-
-    private lateinit var mBtnRecord: Button
-    private lateinit var mBtnInitKalman: Button
-    private lateinit var mBtnStartTest: Button
-    private lateinit var mBtnStartSimulator: Button
-
-    private lateinit var mBtnConnect: Button
-
-    private lateinit var webSocketClient: WebSocketClient
-    private lateinit var targets: MutableList<DroneData>
-
-    private var receivedVideoDataListener: VideoFeeder.VideoDataListener? = null
-    private var codecManager: DJICodecManager? =
-        null //handles the encoding and decoding of video data
-    private lateinit var videoSurface: TextureView //Used to display the DJI product's camera video stream
+    private lateinit var tConnectStatusTextView: TextView
+    private lateinit var tX: TextView
+    private lateinit var tY: TextView
+    private lateinit var tZ: TextView
+    private lateinit var tWs: TextView
 
     private val viewModel by viewModels<MainViewModel>()
+    private lateinit var flightController: FlightController
+    private lateinit var webSocketClient: WebSocketClient
 
     private var pidController = PIDController(1.5, 0.5, 0.0)
-    private var kalman = Kalman()
-    private lateinit var flightController: FlightController
+    private var kalman = KalmanFilter()
 
     private lateinit var GPS: DroneData
     private lateinit var target: DroneData
+    private lateinit var targets: MutableList<DroneData>
 
     private var follow = false
-    private var test = false
     private var record = false
-    private var ws_connected = false
+    private var startTest = false
+    private var wsConnected = false
 
     private var URL = "ws://147.229.193.119:8000"
+
+    private var receivedVideoDataListener: VideoFeeder.VideoDataListener? = null
+    private var codecManager: DJICodecManager? = null
+    private lateinit var videoSurface: TextureView
 
     companion object {
         const val DEBUG = "drone_debug"
@@ -93,26 +75,7 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-
-        ActivityCompat.requestPermissions(
-            this,
-            arrayOf(
-                Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                Manifest.permission.VIBRATE,
-                Manifest.permission.INTERNET,
-                Manifest.permission.ACCESS_WIFI_STATE,
-                Manifest.permission.WAKE_LOCK,
-                Manifest.permission.ACCESS_COARSE_LOCATION,
-                Manifest.permission.ACCESS_NETWORK_STATE,
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.CHANGE_WIFI_STATE,
-                Manifest.permission.MOUNT_UNMOUNT_FILESYSTEMS,
-                Manifest.permission.READ_EXTERNAL_STORAGE,
-                Manifest.permission.SYSTEM_ALERT_WINDOW,
-                Manifest.permission.READ_PHONE_STATE,
-                Manifest.permission.RECORD_AUDIO
-            ), 1
-        )
+        getPermissions()
         viewModel.startSdkRegistration(this)
         initObservers()
         receivedVideoDataListener = VideoFeeder.VideoDataListener { videoBuffer, size ->
@@ -131,9 +94,9 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener {
         }
         webSocketClient = object : WebSocketClient(uri) {
             override fun onOpen(serverHandshake: ServerHandshake) {
-                ws.text = "Connected"
-                ws.setTextColor(Color.GREEN)
-                ws_connected = true
+                tWs.text = "Connected"
+                tWs.setTextColor(Color.GREEN)
+                wsConnected = true
             }
 
             override fun onMessage(s: String) {
@@ -143,19 +106,18 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener {
             }
 
             override fun onClose(i: Int, s: String, b: Boolean) {
-                ws.text = "Disconnected"
-                ws_connected = false
+                tWs.text = "Disconnected"
+                wsConnected = false
             }
 
             override fun onError(e: Exception) {
-                ws.text = "Connection error"
-                ws.setTextColor(Color.RED)
-                ws_connected = false
+                tWs.text = "Connection error"
+                tWs.setTextColor(Color.RED)
+                wsConnected = false
             }
         }
         webSocketClient.connect()
     }
-
 
     private fun initUi() {
         findViewById<Button>(R.id.btn_enable_virtual_stick).setOnClickListener {
@@ -179,7 +141,7 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener {
         }
         findViewById<Button>(R.id.btn_connect_ws).setOnClickListener { createWebSocketClient() }
         findViewById<Button>(R.id.btn_init_kalman).setOnClickListener {
-            kalman = Kalman()
+            kalman = KalmanFilter()
             kalman.prevData = GPS
             kalman.init(mk.ndarray(mk[GPS.x, GPS.y, GPS.z, GPS.vX, GPS.vY, GPS.vZ, 0.0, 0.0, 0.0]))
         }
@@ -208,11 +170,11 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener {
             if (setVirtualSticksEnabled(true)) {
                 target = targets[0]
                 setOffset()
-                test = true
+                startTest = true
             }
         }
 
-        mConnectStatusTextView = findViewById(R.id.ConnectStatusTextView)
+        tConnectStatusTextView = findViewById(R.id.ConnectStatusTextView)
 
         videoSurface = findViewById(R.id.video_previewer_surface)
         videoSurface.surfaceTextureListener = this
@@ -263,10 +225,10 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
 
-        x = findViewById(R.id.x)
-        y = findViewById(R.id.y)
-        z = findViewById(R.id.z)
-        ws = findViewById(R.id.ws)
+        tX = findViewById(R.id.x)
+        tY = findViewById(R.id.y)
+        tZ = findViewById(R.id.z)
+        tWs = findViewById(R.id.ws)
     }
 
     private fun initFlightController() {
@@ -288,15 +250,15 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener {
                     GPS = newGPS
                 }
 
-                x.text = "${if (kalman.initialized) "k_x" else "x"}: ${GPS.x}"
-                y.text = "${if (kalman.initialized) "k_y" else "y"}: ${GPS.y}"
-                z.text = "${if (kalman.initialized) "k_z" else "z"}: ${GPS.z}"
+                tX.text = "${if (kalman.initialized) "k_x" else "x"}: ${GPS.x}"
+                tY.text = "${if (kalman.initialized) "k_y" else "y"}: ${GPS.y}"
+                tZ.text = "${if (kalman.initialized) "k_z" else "z"}: ${GPS.z}"
 
                 if (follow) {
                     calculateFollowData()
                 }
 
-                if (test) {
+                if (startTest) {
                     if (targets.isNotEmpty()) {
                         target = targets[0]
                         calculateFollowData()
@@ -304,11 +266,11 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener {
                         targets.removeAt(0)
                     } else {
                         showToast("Test Stopped")
-                        test = false
+                        startTest = false
                     }
                 }
 
-                if (record && ws_connected) {
+                if (record && wsConnected) {
                     try {
                         webSocketClient.send(Json.encodeToString(GPS))
                     } catch (e: Exception) {
@@ -371,24 +333,46 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener {
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
     }
 
+    private fun getPermissions () {
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(
+                Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                Manifest.permission.VIBRATE,
+                Manifest.permission.INTERNET,
+                Manifest.permission.ACCESS_WIFI_STATE,
+                Manifest.permission.WAKE_LOCK,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+                Manifest.permission.ACCESS_NETWORK_STATE,
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.CHANGE_WIFI_STATE,
+                Manifest.permission.MOUNT_UNMOUNT_FILESYSTEMS,
+                Manifest.permission.READ_EXTERNAL_STORAGE,
+                Manifest.permission.SYSTEM_ALERT_WINDOW,
+                Manifest.permission.READ_PHONE_STATE,
+                Manifest.permission.RECORD_AUDIO
+            ), 1
+        )
+    }
+
     private fun initObservers() {
         viewModel.connectionStatus.observe(this, androidx.lifecycle.Observer<Boolean> {
             initFlightController()
             var ret = false
             viewModel.product?.let {
                 if (it.isConnected) {
-                    mConnectStatusTextView.text = it.model.toString() + " Connected"
+                    tConnectStatusTextView.text = it.model.toString() + " Connected"
                     ret = true
                 } else {
                     if ((it as Aircraft?)?.remoteController != null && it.remoteController.isConnected) {
-                        mConnectStatusTextView.text = "only RC Connected"
+                        tConnectStatusTextView.text = "only RC Connected"
                         ret = true
                     }
                 }
             }
 
             if (!ret) {
-                mConnectStatusTextView.text = "Disconnected"
+                tConnectStatusTextView.text = "Disconnected"
             }
         })
     }
@@ -470,9 +454,4 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener {
     private fun isCameraModuleAvailable(): Boolean {
         return isProductModuleAvailable() && (getProductInstance()?.camera != null)
     }
-
-    private fun isPlaybackAvailable(): Boolean {
-        return isCameraModuleAvailable() && (getProductInstance()?.camera?.playbackManager != null)
-    }
-
 }

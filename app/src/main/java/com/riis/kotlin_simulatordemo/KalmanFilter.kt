@@ -9,7 +9,7 @@ import org.jetbrains.kotlinx.multik.ndarray.operations.plus
 import org.jetbrains.kotlinx.multik.ndarray.operations.times
 import kotlin.math.pow
 
-class Kalman {
+class KalmanFilter {
     private val q_std = mk.ndarray(mk[0.05, 0.05, 0.05, 0.2, 0.2, 0.1, 0.2, 0.2, 0.1])
     private val est_std = mk.ndarray(mk[.1, .1, .3, .1, .1, .3, .1, .1, .3])
     private val gps_std = mk.ndarray(mk[1.0, 1.0, 1.0, .1, .1, .3, .1, .1, .3])
