@@ -24,8 +24,10 @@
             android:layout_height="match_parent"
             app:layout_constraintBottom_toBottomOf="@+id/video_previewer_surface"
             app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.0"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent">
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.0">
 
             <TextView
                 android:id="@+id/ConnectStatusTextView"
@@ -40,54 +42,10 @@
         </androidx.constraintlayout.widget.ConstraintLayout>
 
         <LinearLayout
-            android:layout_width="104dp"
-            android:layout_height="0dp"
-            android:orientation="vertical"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/linearLayout2">
-
-            <Button
-                android:id="@+id/btn_connect_ws"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Connect WS"
-                android:textSize="10sp" />
-
-            <Button
-                android:id="@+id/btn_init_kalman"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Init Kalman"
-                android:textSize="10sp" />
-
-            <Button
-                android:id="@+id/btn_record"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Record"
-                android:textSize="10sp" />
-
-            <Button
-                android:id="@+id/btn_start_simulation"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Start Sim"
-                android:textSize="10sp" />
-
-            <Button
-                android:id="@+id/btn_start_test"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Start Test"
-                android:textSize="10sp" />
-
-        </LinearLayout>
-
-        <LinearLayout
             android:id="@+id/linearLayout2"
-            android:layout_width="176dp"
-            android:layout_height="146dp"
+            android:layout_width="194dp"
+            android:layout_height="wrap_content"
+            android:background="#48EFEDED"
             android:orientation="vertical"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent">
@@ -111,27 +69,83 @@
                 android:text="z:" />
 
             <TextView
-                android:id="@+id/targer_distance"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="dist:" />
-
-            <TextView
                 android:id="@+id/ws"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="ws disconnected" />
 
-            <TextView
+            <EditText
                 android:id="@+id/websocket_url"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="TextView" />
+                android:ems="10"
+                android:hint="URL"
+                android:inputType="numberDecimal"
+                android:textSize="16sp" />
 
         </LinearLayout>
 
         <LinearLayout
-            android:layout_width="80dp"
+            android:id="@+id/linearLayout4"
+            android:layout_width="104dp"
+            android:layout_height="0dp"
+            android:orientation="vertical"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/linearLayout2">
+
+            <Button
+                android:id="@+id/btn_connect_ws"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:text="Connect WS"
+                android:textSize="10sp" />
+
+            <Button
+                android:id="@+id/btn_init_kalman"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:text="Init Kalman"
+                android:textSize="10sp" />
+
+            <Button
+                android:id="@+id/btn_record"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:text="Send Data"
+                android:textSize="10sp" />
+
+            <EditText
+                android:id="@+id/kp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ems="10"
+                android:hint="Kp"
+                android:inputType="numberDecimal"
+                android:textSize="12sp" />
+
+            <EditText
+                android:id="@+id/kd"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ems="10"
+                android:hint="Kd"
+                android:inputType="numberDecimal"
+                android:textSize="12sp" />
+
+            <EditText
+                android:id="@+id/ki"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ems="10"
+                android:hint="Ki"
+                android:inputType="numberDecimal"
+                android:textSize="12sp" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="86dp"
             android:layout_height="0dp"
             android:orientation="vertical"
             app:layout_constraintBottom_toBottomOf="parent"
@@ -143,49 +157,42 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Start Follow"
-                android:textSize="12sp" />
+                android:textSize="10sp" />
 
             <Button
                 android:id="@+id/btn_disable_virtual_stick"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Stop Follow"
-                android:textSize="12sp" />
+                android:textSize="10sp" />
 
             <Button
                 android:id="@+id/btn_take_off"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Take off"
-                android:textSize="12sp" />
+                android:textSize="10sp" />
 
             <Button
                 android:id="@+id/btn_land"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Land"
-                android:textSize="12sp" />
+                android:textSize="10sp" />
 
-            <EditText
-                android:id="@+id/kp"
-                android:layout_width="match_parent"
-                android:layout_height="60dp"
-                android:ems="10"
-                android:inputType="numberDecimal" />
-
-            <EditText
-                android:id="@+id/kd"
-                android:layout_width="match_parent"
-                android:layout_height="60dp"
-                android:ems="10"
-                android:inputType="numberDecimal" />
-
-            <EditText
-                android:id="@+id/ki"
+            <Button
+                android:id="@+id/btn_start_simulation"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:ems="10"
-                android:inputType="numberDecimal" />
+                android:text="Start Sim"
+                android:textSize="10sp" />
+
+            <Button
+                android:id="@+id/btn_start_test"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Start Test"
+                android:textSize="10sp" />
 
         </LinearLayout>
 

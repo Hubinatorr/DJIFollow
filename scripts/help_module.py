@@ -20,6 +20,8 @@ def get_random_noise(data, max_noise):
         n = random.randrange(-max_noise, max_noise)
         pos["x"] = pos["x"] + n
         pos["y"] = pos["y"] + n
+        pos["z"] = pos["z"] + n
+        print(n)
         # pos["vX"] = pos["vX"] + n
         # pos["vY"] = pos["vY"] + n
     return noise_data

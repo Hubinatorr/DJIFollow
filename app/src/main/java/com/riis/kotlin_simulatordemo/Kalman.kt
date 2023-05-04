@@ -1,6 +1,5 @@
 package com.riis.kotlin_simulatordemo
 
-import android.util.Log
 import org.jetbrains.kotlinx.multik.api.*
 import org.jetbrains.kotlinx.multik.api.linalg.dot
 import org.jetbrains.kotlinx.multik.api.linalg.inv
@@ -9,7 +8,6 @@ import org.jetbrains.kotlinx.multik.ndarray.operations.minus
 import org.jetbrains.kotlinx.multik.ndarray.operations.plus
 import org.jetbrains.kotlinx.multik.ndarray.operations.times
 import kotlin.math.pow
-import kotlin.math.roundToInt
 
 class Kalman {
     private val q_std = mk.ndarray(mk[0.05, 0.05, 0.05, 0.2, 0.2, 0.1, 0.2, 0.2, 0.1])
@@ -17,12 +15,13 @@ class Kalman {
     private val gps_std = mk.ndarray(mk[1.0, 1.0, 1.0, .1, .1, .3, .1, .1, .3])
 
     var initialized = false
+    lateinit var prevData: DroneData
 
     var state =
         mk.ndarray(mk[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
     private lateinit var K: D2Array<Double>
-    private lateinit var predictedState: D1Array<Double>
+    lateinit var predictedState: D1Array<Double>
     private lateinit var predictedP: D2Array<Double>
 
     var P = mk.ndarray(
@@ -122,14 +121,13 @@ class Kalman {
         predictedP = ((F dot P) dot F.transpose()) + Q
     }
 
-    lateinit var prevData: DroneData
-    fun update(dt: Double, data: DroneData) {
+    fun update(dt: Double, data: DroneData) : DroneData {
         val z = mk.ndarray(mk[
                     data.x, data.y, data.z,
                     data.vX, data.vY, data.vZ,
                     (data.vX - prevData.vX) / dt, (data.vY - prevData.vY) / dt, (data.vZ - prevData.vZ) / dt]
             )
-        prevData = data
+
         val I = mk.identity<Double>(9)
         val inv = ((H dot predictedP) dot H.transpose()) + R
         val zDist = z - mulMV(H,predictedState)
@@ -137,5 +135,8 @@ class Kalman {
         K = (predictedP dot H.transpose()) dot mk.linalg.inv(inv)
         state = predictedState + mulMV(K, zDist)
         P = (((I - (K dot H)) dot predictedP) dot (I - (K dot H)).transpose()) + ((K dot R) dot K.transpose())
+        prevData = data
+        data.x = state[0]; data.y = state[1]; data.z = state[2]; data.vX = state[3]; data.vY = state[4]; data.vZ = state[5];
+        return data
     }
 }

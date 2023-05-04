@@ -1,7 +1,8 @@
 package com.riis.kotlin_simulatordemo
 
 import android.Manifest
-import android.annotation.SuppressLint
+import android.content.res.ColorStateList
+import android.graphics.Color
 import android.graphics.SurfaceTexture
 import android.os.Bundle
 import android.text.Editable
@@ -16,8 +17,6 @@ import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import androidx.lifecycle.lifecycleScope
-import dji.common.camera.SettingsDefinitions
 import dji.common.flightcontroller.FlightControllerState
 import dji.common.flightcontroller.simulator.InitializationData
 import dji.common.flightcontroller.virtualstick.*
@@ -27,33 +26,28 @@ import dji.sdk.base.BaseProduct
 import dji.sdk.camera.Camera
 import dji.sdk.camera.VideoFeeder
 import dji.sdk.codec.DJICodecManager
+import dji.sdk.flightcontroller.FlightController
 import dji.sdk.products.Aircraft
 import dji.sdk.products.HandHeld
 import dji.sdk.sdkmanager.DJISDKManager
 import dji.thirdparty.org.java_websocket.client.WebSocketClient
 import dji.thirdparty.org.java_websocket.handshake.ServerHandshake
-import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
-import org.jetbrains.kotlinx.multik.api.linalg.dot
 import org.jetbrains.kotlinx.multik.api.mk
 import org.jetbrains.kotlinx.multik.api.ndarray
-import org.jetbrains.kotlinx.multik.ndarray.data.get
-import org.jetbrains.kotlinx.multik.ndarray.operations.times
 import java.net.URI
 import java.net.URISyntaxException
 import java.util.*
-import kotlin.math.roundToInt
 
 
-class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, View.OnClickListener {
+class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener {
     private lateinit var mConnectStatusTextView: TextView
     private lateinit var x: TextView
     private lateinit var y: TextView
     private lateinit var z: TextView
-    private lateinit var dist: TextView
     private lateinit var ws: TextView
 
     private lateinit var mBtnEnableVirtualStick: Button
@@ -69,24 +63,31 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
     private lateinit var mBtnConnect: Button
 
     private lateinit var webSocketClient: WebSocketClient
+    private lateinit var targets: MutableList<DroneData>
 
     private var receivedVideoDataListener: VideoFeeder.VideoDataListener? = null
-    private var codecManager: DJICodecManager? = null //handles the encoding and decoding of video data
+    private var codecManager: DJICodecManager? =
+        null //handles the encoding and decoding of video data
     private lateinit var videoSurface: TextureView //Used to display the DJI product's camera video stream
 
     private val viewModel by viewModels<MainViewModel>()
 
-    private var droneManager = DroneManager()
+    private var pidController = PIDController(1.5, 0.5, 0.0)
     private var kalman = Kalman()
-    private lateinit var GPS : DroneData
-    private lateinit var target : DroneData
+    private lateinit var flightController: FlightController
+
+    private lateinit var GPS: DroneData
+    private lateinit var target: DroneData
 
     private var follow = false
+    private var test = false
     private var record = false
     private var ws_connected = false
+
+    private var URL = "ws://147.229.193.119:8000"
+
     companion object {
         const val DEBUG = "drone_debug"
-        const val RECORD = "drone_record"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -112,42 +113,43 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
                 Manifest.permission.RECORD_AUDIO
             ), 1
         )
+        viewModel.startSdkRegistration(this)
+        initObservers()
         receivedVideoDataListener = VideoFeeder.VideoDataListener { videoBuffer, size ->
             codecManager?.sendDataToDecoder(videoBuffer, size)
         }
-        viewModel.startSdkRegistration(this)
-        initObservers()
         initUi()
     }
 
     private fun createWebSocketClient() {
         val uri: URI = try {
-            URI("ws://147.229.193.119:8000")
+            URI(URL)
         } catch (e: URISyntaxException) {
+            showToast("Bad Url")
             e.printStackTrace()
             return
         }
         webSocketClient = object : WebSocketClient(uri) {
             override fun onOpen(serverHandshake: ServerHandshake) {
-                ws.text = "ws connected"
+                ws.text = "Connected"
+                ws.setTextColor(Color.GREEN)
                 ws_connected = true
             }
 
             override fun onMessage(s: String) {
-                try {
+                if (s[0] == '{') {
                     target = Json.decodeFromString(s)
-                } catch (e: Exception) {
-                    Log.i(DEBUG, e.message.toString())
                 }
             }
 
             override fun onClose(i: Int, s: String, b: Boolean) {
-                ws.text = "ws disconnected"
+                ws.text = "Disconnected"
                 ws_connected = false
             }
 
             override fun onError(e: Exception) {
-                ws.text = "ws error connection"
+                ws.text = "Connection error"
+                ws.setTextColor(Color.RED)
                 ws_connected = false
             }
         }
@@ -156,32 +158,59 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
 
 
     private fun initUi() {
-        mBtnEnableVirtualStick = findViewById(R.id.btn_enable_virtual_stick)
-        mBtnEnableVirtualStick.setOnClickListener(this)
+        findViewById<Button>(R.id.btn_enable_virtual_stick).setOnClickListener {
+            if (setVirtualSticksEnabled(true)) {
+                follow = true
+                setOffset()
+            }
+        }
+        findViewById<Button>(R.id.btn_disable_virtual_stick).setOnClickListener {
+            setVirtualSticksEnabled(false)
+        }
+        findViewById<Button>(R.id.btn_take_off).setOnClickListener {
+            flightController.startTakeoff { djiError ->
+                showToast(if (djiError != null) "Takeoff Error: ${djiError.description}" else "Takeoff Success")
+            }
+        }
+        findViewById<Button>(R.id.btn_land).setOnClickListener {
+            flightController.startLanding { djiError ->
+                showToast(if (djiError != null) "Landing Error: ${djiError.description}" else "Start Landing Success")
+            }
+        }
+        findViewById<Button>(R.id.btn_connect_ws).setOnClickListener { createWebSocketClient() }
+        findViewById<Button>(R.id.btn_init_kalman).setOnClickListener {
+            kalman = Kalman()
+            kalman.prevData = GPS
+            kalman.init(mk.ndarray(mk[GPS.x, GPS.y, GPS.z, GPS.vX, GPS.vY, GPS.vZ, 0.0, 0.0, 0.0]))
+        }
+        findViewById<Button>(R.id.btn_start_simulation).setOnClickListener {
+            flightController.simulator?.start(
+                InitializationData.createInstance(
+                    LocationCoordinate2D(49.2, 16.6), 10, 10
+                )
+            ) { djiError ->
+                if (djiError != null) {
+                    showToast("Simulator Error: ${djiError.description}")
+                } else {
+                    showToast("Start Simulator Success")
+                }
+            }
+        }
+        findViewById<Button>(R.id.btn_record).setOnClickListener {
+            record = !record
+            if (record) {
+                showToast(if (record) "Record stated" else "Record stopped")
+            }
+        }
+        findViewById<Button>(R.id.btn_start_test).setOnClickListener {
+            targets = Json.decodeFromStream(resources.openRawResource(R.raw.fast))
 
-        mBtnDisableVirtualStick = findViewById(R.id.btn_disable_virtual_stick)
-        mBtnDisableVirtualStick.setOnClickListener(this)
-
-        mBtnTakeOff = findViewById(R.id.btn_take_off)
-        mBtnTakeOff.setOnClickListener(this)
-
-        mBtnLand = findViewById(R.id.btn_land)
-        mBtnLand.setOnClickListener(this)
-
-        mBtnRecord = findViewById(R.id.btn_record)
-        mBtnRecord.setOnClickListener(this)
-
-        mBtnInitKalman = findViewById(R.id.btn_init_kalman)
-        mBtnInitKalman.setOnClickListener(this)
-
-        mBtnStartTest = findViewById(R.id.btn_start_test)
-        mBtnStartTest.setOnClickListener(this)
-
-        mBtnStartSimulator = findViewById(R.id.btn_start_simulation)
-        mBtnStartSimulator.setOnClickListener(this)
-
-        mBtnConnect = findViewById(R.id.btn_connect_ws)
-        mBtnConnect.setOnClickListener(this)
+            if (setVirtualSticksEnabled(true)) {
+                target = targets[0]
+                setOffset()
+                test = true
+            }
+        }
 
         mConnectStatusTextView = findViewById(R.id.ConnectStatusTextView)
 
@@ -190,12 +219,10 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
 
         findViewById<EditText>(R.id.kd).addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
-                try {
-                    droneManager.pidController.Kd = s.toString().toDouble()
-                    showToast("Changed kd")
-                } catch (e: Exception) {
-                    showToast("Error changing kd")
+                if (s.toString().toDoubleOrNull() == null) {
+                    showToast("Error changing kd"); return
                 }
+                pidController.Kd = s.toString().toDouble()
             }
 
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -204,39 +231,44 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
 
         findViewById<EditText>(R.id.kp).addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
-                try {
-                    droneManager.pidController.Kp = s.toString().toDouble()
-                    showToast("Changed kp")
-                } catch (e: Exception) {
-                    showToast("Error changing kp")
+                if (s.toString().toDoubleOrNull() == null) {
+                    showToast("Error changing kp"); return
                 }
+                pidController.Kp = s.toString().toDouble()
             }
+
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
 
         findViewById<EditText>(R.id.ki).addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
-                try {
-                    droneManager.pidController.Ki = s.toString().toDouble()
-                    showToast("Error changing ki")
-                } catch (e: Exception) {
-
+                if (s.toString().toDoubleOrNull() == null) {
+                    showToast("Error changing kp"); return
                 }
+                pidController.Kp = s.toString().toDouble()
             }
+
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
 
+        findViewById<EditText>(R.id.websocket_url).addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                URL = s.toString()
+                showToast("Changed url")
+            }
+
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
 
         x = findViewById(R.id.x)
         y = findViewById(R.id.y)
         z = findViewById(R.id.z)
-        dist = findViewById(R.id.targer_distance)
         ws = findViewById(R.id.ws)
     }
 
-    @SuppressLint("SetTextI18n")
     private fun initFlightController() {
         viewModel.getFlightController()?.let {
             it.rollPitchControlMode = RollPitchControlMode.VELOCITY
@@ -245,205 +277,94 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
             it.rollPitchCoordinateSystem = FlightCoordinateSystem.GROUND
 
             val callback = FlightControllerState.Callback { state ->
-
                 val newGPS = getDroneState(state)
                 newGPS.vZ = -newGPS.vZ
 
                 if (kalman.initialized) {
                     val dt = (newGPS.t - GPS.t) / 1000.0
-
                     kalman.predict(dt)
-                    kalman.update(dt, newGPS)
-                    GPS = newGPS
-
-                    x.text = "K: ${GPS.x}"
-                    y.text = "K: ${GPS.y}"
-                    z.text = "K: ${GPS.z}"
+                    GPS = kalman.update(dt, newGPS)
                 } else {
                     GPS = newGPS
-                    x.text = "${GPS.x}"
-                    y.text = "${GPS.y}"
-                    z.text = "${GPS.z}"
                 }
+
+                x.text = "${if (kalman.initialized) "k_x" else "x"}: ${GPS.x}"
+                y.text = "${if (kalman.initialized) "k_y" else "y"}: ${GPS.y}"
+                z.text = "${if (kalman.initialized) "k_z" else "z"}: ${GPS.z}"
 
                 if (follow) {
-                    droneManager.calculateFollowData(target, GPS)
+                    calculateFollowData()
                 }
 
-                if (record) {
-                    if (ws_connected) {
-                        try {
-                            GPS.id = "Target"
-                            webSocketClient.send(Json.encodeToString(GPS))
-                        } catch (e: Exception) {
-                            showToast(e.message!!)
-                        }
+                if (test) {
+                    if (targets.isNotEmpty()) {
+                        target = targets[0]
+                        calculateFollowData()
+                        webSocketClient.send(Json.encodeToString(GPS))
+                        targets.removeAt(0)
+                    } else {
+                        showToast("Test Stopped")
+                        test = false
+                    }
+                }
+
+                if (record && ws_connected) {
+                    try {
+                        webSocketClient.send(Json.encodeToString(GPS))
+                    } catch (e: Exception) {
+                        showToast(e.message!!)
                     }
                 }
             }
+
             it.setStateCallback(callback)
-            droneManager.controller = it
+            flightController = it
+        }
+    }
+
+    private fun calculateFollowData() {
+        val (roll, pitch, throttle) = pidController.compute(GPS, target)
+        flightController.sendVirtualStickFlightControlData(
+            FlightControlData(
+                pitch.coerceIn(-10.0, 10.0).toFloat(),
+                roll.coerceIn(-10.0, 10.0).toFloat(),
+                0f,
+                throttle.coerceIn(-4.0, 4.0).toFloat()
+            )
+        ) { djiError ->
+            if (djiError != null) {
+                showToast("Couldn't sent VirtualStick Commands")
+            }
         }
     }
 
     private fun getDroneState(state: FlightControllerState): DroneData {
         return DroneData(
-            System.currentTimeMillis(),
-            "Target",
-            Deg2UTM(
-                state.aircraftLocation.latitude,
-                state.aircraftLocation.longitude
-            ).Northing,
-            Deg2UTM(
-                state.aircraftLocation.latitude,
-                state.aircraftLocation.longitude
-            ).Easting,
+            System.currentTimeMillis(), "Target",
+            Deg2UTM(state.aircraftLocation.latitude, state.aircraftLocation.longitude).Northing,
+            Deg2UTM(state.aircraftLocation.latitude, state.aircraftLocation.longitude).Easting,
             state.aircraftLocation.altitude.toDouble(),
-            state.velocityX.toDouble(),
-            state.velocityY.toDouble(),
-            state.velocityZ.toDouble()
+            state.velocityX.toDouble(), state.velocityY.toDouble(), state.velocityZ.toDouble()
         )
     }
 
-    override fun onClick(v: View?) {
-        when (v?.id) {
-            R.id.btn_enable_virtual_stick -> {
-                viewModel.getFlightController()?.let { controller ->
-                    controller.setVirtualStickModeEnabled(true) { djiError ->
-                        if (djiError != null) {
-                            Log.i(DEBUG, djiError.description)
-                            showToast("Virtual Stick: Could not enable virtual stick")
-                        } else {
-                            droneManager.pidController.offsetX = target.x - GPS.x
-                            droneManager.pidController.offsetY = target.y - GPS.y
-                            droneManager.pidController.offsetZ = target.z - GPS.z
-
-                            follow = true
-                            showToast("Follow started")
-                        }
-                    }
-                }
-
-            }
-            R.id.btn_disable_virtual_stick -> {
-                viewModel.getFlightController()?.let { controller ->
-                    controller.setVirtualStickModeEnabled(false) { djiError ->
-                        if (djiError != null) {
-                            Log.i(DEBUG, djiError.description)
-                            showToast("Virtual Stick: Could not disable virtual stick")
-                            follow = false
-                        } else {
-                            Log.i(DEBUG, "Disable Virtual Stick Success")
-                            showToast("Virtual Sticks Disabled")
-                            follow = false
-                        }
-                    }
-                }
-            }
-            R.id.btn_take_off -> {
-                viewModel.getFlightController()?.let { controller ->
-                    controller.startTakeoff { djiError ->
-                        if (djiError != null) {
-                            Log.i(DEBUG, djiError.description)
-                            showToast("Takeoff Error: ${djiError.description}")
-                        } else {
-                            Log.i(DEBUG, "Takeoff Success")
-                            showToast("Takeoff Success")
-                        }
-                    }
-                }
-            }
-            R.id.btn_land -> {
-                viewModel.getFlightController()?.let { controller ->
-                    controller.startLanding { djiError ->
-                        if (djiError != null) {
-                            Log.i(DEBUG, djiError.description)
-                            showToast("Landing Error: ${djiError.description}")
-                        } else {
-                            Log.i(DEBUG, "Start Landing Success")
-                            showToast("Start Landing Success")
-                        }
-                    }
-                }
-            }
-            R.id.btn_connect_ws -> {
-                createWebSocketClient()
-            }
-            R.id.btn_init_kalman -> {
-                kalman = Kalman()
-                kalman.prevData = GPS
-                kalman.init(mk.ndarray(mk[GPS.x, GPS.y, GPS.z, GPS.vX, GPS.vY, GPS.vZ, 0.0, 0.0, 0.0]))
-            }
-            R.id.btn_start_simulation -> {
-                startSimulation()
-            }
-            R.id.btn_record -> {
-                record = !record
-
-                if (record) {
-                    showToast("Record stated")
-                } else {
-                    showToast("Record stopped")
-                }
-            }
-            R.id.btn_start_test -> {
-                var testData = Json.decodeFromStream<List<DroneData>>(resources.openRawResource(R.raw.full))
-                kalman = Kalman()
-                kalman.prevData = testData[0]
-                kalman.init(mk.ndarray(mk[testData[0].x, testData[0].y, testData[0].z, testData[0].vX, testData[0].vY, testData[0].vZ, 0.0, 0.0, 0.0]))
-                var GPS = testData[0]
-                var first = true
-                for (data in testData) {
-                    if (first) {
-                        first = false
-                    } else {
-                        val newGPS = data
-                        newGPS.vZ = -newGPS.vZ
-                        newGPS.id = "KalmanResult"
-                        val dt = (newGPS.t - GPS.t) / 1000.0
-
-                        kalman.predict(dt)
-                        kalman.update(dt, newGPS)
-                        GPS = newGPS
-                        GPS.x = kalman.state[0]
-                        GPS.y = kalman.state[1]
-                        GPS.z = kalman.state[2]
-                        GPS.vX = kalman.state[3]
-                        GPS.vY = kalman.state[4]
-                        GPS.vZ = kalman.state[5]
-
-//                        val fGPS = DroneDataFull(GPS.t, "KalmanResult",
-//                            kalman.state[2],
-//                            kalman.state[1],
-//                            kalman.state[0],
-//                            kalman.state[5],
-//                            kalman.state[4],
-//                            kalman.state[3],
-//                            kalman.state[8],
-//                            kalman.state[7],
-//                            kalman.state[6],
-//                        )
-                        webSocketClient.send(Json.encodeToString(GPS))
-                    }
-                }
-            }
-        }
+    private fun setOffset() {
+        pidController.offsetX = target.x - GPS.x
+        pidController.offsetY = target.y - GPS.y
+        pidController.offsetZ = target.z - GPS.z
     }
 
-    private fun startSimulation() {
-        viewModel.getFlightController()?.simulator?.start(
-            InitializationData.createInstance(
-                LocationCoordinate2D(49.2, 16.6), 10, 10
-            )
-        ) { djiError ->
+    private fun setVirtualSticksEnabled(enabled: Boolean): Boolean {
+        var ret = true
+        flightController.setVirtualStickModeEnabled(enabled) { djiError ->
             if (djiError != null) {
-                Log.i(DEBUG, djiError.description)
-                showToast("Simulator Error: ${djiError.description}")
+                showToast("Could not ${if (enabled) "enable" else "disable"} virtual stick")
+                ret = false
             } else {
-                Log.i(DEBUG, "Start Simulator Success")
-                showToast("Start Simulator Success")
+                showToast("${if (enabled) "Enabled" else "Disabled"} virtual stick")
             }
         }
+        return ret
     }
 
     private fun showToast(msg: String) {
@@ -476,7 +397,7 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
         val product: BaseProduct = getProductInstance() ?: return
 
         if (!product.isConnected) {
-            showToast("Disconnected");
+            showToast("Disconnected")
         } else {
             videoSurface.surfaceTextureListener = this
             if (product.model != Model.UNKNOWN_AIRCRAFT) {
@@ -541,6 +462,7 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, Vi
             else -> null
         }
     }
+
     private fun isProductModuleAvailable(): Boolean {
         return (getProductInstance() != null)
     }
