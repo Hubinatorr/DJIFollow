@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.TextureView
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
@@ -30,6 +31,7 @@ import dji.sdk.products.HandHeld
 import dji.sdk.sdkmanager.DJISDKManager
 import dji.thirdparty.org.java_websocket.client.WebSocketClient
 import dji.thirdparty.org.java_websocket.handshake.ServerHandshake
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -40,7 +42,7 @@ import java.net.URI
 import java.net.URISyntaxException
 
 
-class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener {
+class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener, View.OnClickListener {
     private lateinit var tConnectStatusTextView: TextView
     private lateinit var tX: TextView
     private lateinit var tY: TextView
@@ -83,153 +85,6 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener {
             codecManager?.sendDataToDecoder(videoBuffer, size)
         }
         initUi()
-    }
-
-    private fun createWebSocketClient() {
-        val uri: URI = try {
-            URI(URL)
-        } catch (e: URISyntaxException) {
-            showToast("Bad Url")
-            e.printStackTrace()
-            return
-        }
-        webSocketClient = object : WebSocketClient(uri) {
-            override fun onOpen(serverHandshake: ServerHandshake) {
-                tWs.text = "Connected"
-                tWs.setTextColor(Color.GREEN)
-                wsConnected = true
-            }
-
-            override fun onMessage(s: String) {
-                if (s[0] == '{') {
-                    target = Json.decodeFromString(s)
-                }
-            }
-
-            override fun onClose(i: Int, s: String, b: Boolean) {
-                tWs.text = "Disconnected"
-                wsConnected = false
-            }
-
-            override fun onError(e: Exception) {
-                tWs.text = "Connection error"
-                tWs.setTextColor(Color.RED)
-                wsConnected = false
-            }
-        }
-        webSocketClient.connect()
-    }
-
-    private fun initUi() {
-        findViewById<Button>(R.id.btn_enable_virtual_stick).setOnClickListener {
-            if (setVirtualSticksEnabled(true)) {
-                follow = true
-                setOffset()
-            }
-        }
-        findViewById<Button>(R.id.btn_disable_virtual_stick).setOnClickListener {
-            setVirtualSticksEnabled(false)
-        }
-        findViewById<Button>(R.id.btn_take_off).setOnClickListener {
-            flightController.startTakeoff { djiError ->
-                showToast(if (djiError != null) "Takeoff Error: ${djiError.description}" else "Takeoff Success")
-            }
-        }
-        findViewById<Button>(R.id.btn_land).setOnClickListener {
-            flightController.startLanding { djiError ->
-                showToast(if (djiError != null) "Landing Error: ${djiError.description}" else "Start Landing Success")
-            }
-        }
-        findViewById<Button>(R.id.btn_connect_ws).setOnClickListener { createWebSocketClient() }
-        findViewById<Button>(R.id.btn_init_kalman).setOnClickListener {
-            kalman = KalmanFilter()
-            kalman.prevData = GPS
-            kalman.init(mk.ndarray(mk[GPS.x, GPS.y, GPS.z, GPS.vX, GPS.vY, GPS.vZ, 0.0, 0.0, 0.0]))
-        }
-        findViewById<Button>(R.id.btn_start_simulation).setOnClickListener {
-            flightController.simulator?.start(
-                InitializationData.createInstance(
-                    LocationCoordinate2D(49.2, 16.6), 10, 10
-                )
-            ) { djiError ->
-                if (djiError != null) {
-                    showToast("Simulator Error: ${djiError.description}")
-                } else {
-                    showToast("Start Simulator Success")
-                }
-            }
-        }
-        findViewById<Button>(R.id.btn_record).setOnClickListener {
-            record = !record
-            if (record) {
-                showToast(if (record) "Record stated" else "Record stopped")
-            }
-        }
-        findViewById<Button>(R.id.btn_start_test).setOnClickListener {
-            targets = Json.decodeFromStream(resources.openRawResource(R.raw.full))
-
-            if (setVirtualSticksEnabled(true)) {
-                target = targets[0]
-                setOffset()
-                startTest = true
-            }
-        }
-
-        tConnectStatusTextView = findViewById(R.id.ConnectStatusTextView)
-
-        videoSurface = findViewById(R.id.video_previewer_surface)
-        videoSurface.surfaceTextureListener = this
-
-        findViewById<EditText>(R.id.kd).addTextChangedListener(object : TextWatcher {
-            override fun afterTextChanged(s: Editable?) {
-                if (s.toString().toDoubleOrNull() == null) {
-                    showToast("Error changing kd"); return
-                }
-                pidController.Kd = s.toString().toDouble()
-            }
-
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-        })
-
-        findViewById<EditText>(R.id.kp).addTextChangedListener(object : TextWatcher {
-            override fun afterTextChanged(s: Editable?) {
-                if (s.toString().toDoubleOrNull() == null) {
-                    showToast("Error changing kp"); return
-                }
-                pidController.Kp = s.toString().toDouble()
-            }
-
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-        })
-
-        findViewById<EditText>(R.id.ki).addTextChangedListener(object : TextWatcher {
-            override fun afterTextChanged(s: Editable?) {
-                if (s.toString().toDoubleOrNull() == null) {
-                    showToast("Error changing ki"); return
-                }
-                pidController.Ki = s.toString().toDouble()
-            }
-
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-        })
-
-        findViewById<EditText>(R.id.websocket_url).addTextChangedListener(object : TextWatcher {
-            override fun afterTextChanged(s: Editable?) {
-                URL = s.toString()
-                showToast("Changed url")
-            }
-
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-        })
-
-        tX = findViewById(R.id.x)
-        tY = findViewById(R.id.y)
-        tZ = findViewById(R.id.z)
-        tWs = findViewById(R.id.ws)
     }
 
     private fun initFlightController() {
@@ -300,6 +155,168 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener {
             }
         }
     }
+
+    private fun createWebSocketClient() {
+        val uri: URI = try {
+            URI(URL)
+        } catch (e: URISyntaxException) {
+            showToast("Bad Url")
+            e.printStackTrace()
+            return
+        }
+        webSocketClient = object : WebSocketClient(uri) {
+            override fun onOpen(serverHandshake: ServerHandshake) {
+                tWs.text = "Connected"
+                tWs.setTextColor(Color.GREEN)
+                wsConnected = true
+            }
+
+            override fun onMessage(s: String) {
+                if (s[0] == '{') {
+                    target = Json.decodeFromString(s)
+                }
+            }
+
+            override fun onClose(i: Int, s: String, b: Boolean) {
+                tWs.text = "Disconnected"
+                wsConnected = false
+            }
+
+            override fun onError(e: Exception) {
+                tWs.text = "Connection error"
+                tWs.setTextColor(Color.RED)
+                wsConnected = false
+            }
+        }
+        webSocketClient.connect()
+    }
+
+    @OptIn(ExperimentalSerializationApi::class)
+    override fun onClick(v: View?) {
+        when(v?.id) {
+            R.id.btn_enable_virtual_stick -> {
+                if (setVirtualSticksEnabled(true)) {
+                    follow = true
+                    setOffset()
+                }
+            }
+            R.id.btn_disable_virtual_stick -> {
+                setVirtualSticksEnabled(false)
+            }
+            R.id.btn_connect_ws -> {
+                createWebSocketClient()
+            }
+            R.id.btn_init_kalman -> {
+                kalman = KalmanFilter()
+                kalman.prevData = GPS
+                kalman.init(mk.ndarray(mk[GPS.x, GPS.y, GPS.z, GPS.vX, GPS.vY, GPS.vZ, 0.0, 0.0, 0.0]))
+            }
+            R.id.btn_record -> {
+                record = !record
+                showToast(if (record) "Record stated" else "Record stopped")
+            }
+            R.id.btn_start_test -> {
+                targets = Json.decodeFromStream(resources.openRawResource(R.raw.full))
+
+                if (setVirtualSticksEnabled(true)) {
+                    target = targets[0]
+                    setOffset()
+                    startTest = true
+                }
+            }
+            R.id.btn_take_off -> {
+                flightController.startTakeoff { djiError ->
+                    showToast(if (djiError != null) "Takeoff Error: ${djiError.description}" else "Takeoff Success")
+                }
+            }
+            R.id.btn_land -> {
+                flightController.startLanding { djiError ->
+                    showToast(if (djiError != null) "Landing Error: ${djiError.description}" else "Start Landing Success")
+                }
+            }
+            R.id.btn_start_simulation -> {
+                flightController.simulator?.start(
+                    InitializationData.createInstance(
+                        LocationCoordinate2D(49.2, 16.6), 10, 10
+                    )
+                ) { djiError ->
+                    if (djiError != null) {
+                        showToast("Simulator Error: ${djiError.description}")
+                    } else {
+                        showToast("Start Simulator Success")
+                    }
+                }
+            }
+        }
+    }
+
+
+    private fun initUi() {
+        findViewById<Button>(R.id.btn_enable_virtual_stick).setOnClickListener (this)
+        findViewById<Button>(R.id.btn_disable_virtual_stick).setOnClickListener (this)
+        findViewById<Button>(R.id.btn_take_off).setOnClickListener (this)
+        findViewById<Button>(R.id.btn_land).setOnClickListener (this)
+        findViewById<Button>(R.id.btn_connect_ws).setOnClickListener  (this)
+        findViewById<Button>(R.id.btn_init_kalman).setOnClickListener  (this)
+        findViewById<Button>(R.id.btn_start_simulation).setOnClickListener  (this)
+        findViewById<Button>(R.id.btn_record).setOnClickListener  (this)
+        findViewById<Button>(R.id.btn_start_test).setOnClickListener  (this)
+
+        findViewById<EditText>(R.id.kd).addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                if (s.toString().toDoubleOrNull() == null) {
+                    showToast("Error changing kd"); return
+                }
+                pidController.Kd = s.toString().toDouble()
+            }
+
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
+        findViewById<EditText>(R.id.kp).addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                if (s.toString().toDoubleOrNull() == null) {
+                    showToast("Error changing kp"); return
+                }
+                pidController.Kp = s.toString().toDouble()
+            }
+
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
+        findViewById<EditText>(R.id.ki).addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                if (s.toString().toDoubleOrNull() == null) {
+                    showToast("Error changing ki"); return
+                }
+                pidController.Ki = s.toString().toDouble()
+            }
+
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
+        findViewById<EditText>(R.id.websocket_url).addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                URL = s.toString()
+                showToast("Changed url")
+            }
+
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
+        tConnectStatusTextView = findViewById(R.id.ConnectStatusTextView)
+        videoSurface = findViewById(R.id.video_previewer_surface)
+        videoSurface.surfaceTextureListener = this
+        tX = findViewById(R.id.x)
+        tY = findViewById(R.id.y)
+        tZ = findViewById(R.id.z)
+        tWs = findViewById(R.id.ws)
+    }
+
 
     private fun getDroneState(state: FlightControllerState): DroneData {
         return DroneData(
