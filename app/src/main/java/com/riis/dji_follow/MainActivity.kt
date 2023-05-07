@@ -1,4 +1,4 @@
-package com.riis.kotlin_simulatordemo
+package com.riis.dji_follow
 
 import android.Manifest
 import android.graphics.Color
@@ -14,6 +14,7 @@ import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import com.riis.dji_follow.R
 import dji.common.flightcontroller.FlightControllerState
 import dji.common.flightcontroller.simulator.InitializationData
 import dji.common.flightcontroller.virtualstick.*
@@ -165,7 +166,7 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener {
             }
         }
         findViewById<Button>(R.id.btn_start_test).setOnClickListener {
-            targets = Json.decodeFromStream(resources.openRawResource(R.raw.fast))
+            targets = Json.decodeFromStream(resources.openRawResource(R.raw.full))
 
             if (setVirtualSticksEnabled(true)) {
                 target = targets[0]
@@ -206,9 +207,9 @@ class MainActivity : AppCompatActivity(), TextureView.SurfaceTextureListener {
         findViewById<EditText>(R.id.ki).addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
                 if (s.toString().toDoubleOrNull() == null) {
-                    showToast("Error changing kp"); return
+                    showToast("Error changing ki"); return
                 }
-                pidController.Kp = s.toString().toDouble()
+                pidController.Ki = s.toString().toDouble()
             }
 
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}

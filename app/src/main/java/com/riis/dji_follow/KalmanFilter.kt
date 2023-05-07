@@ -1,4 +1,4 @@
-package com.riis.kotlin_simulatordemo
+package com.riis.dji_follow
 
 import org.jetbrains.kotlinx.multik.api.*
 import org.jetbrains.kotlinx.multik.api.linalg.dot

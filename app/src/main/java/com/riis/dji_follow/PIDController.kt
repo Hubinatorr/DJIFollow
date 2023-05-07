@@ -1,7 +1,6 @@
-package com.riis.kotlin_simulatordemo
+package com.riis.dji_follow
 
 import android.util.Log
-import kotlin.properties.Delegates
 
 class PIDController(var Kp: Double, var Kd: Double, var Ki: Double) {
     // Position Error

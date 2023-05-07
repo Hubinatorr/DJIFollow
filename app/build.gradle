@@ -57,7 +57,7 @@ android {
         }
     }
 
-    namespace 'com.riis.kotlin_simulatordemo'
+    namespace 'com.riis.dji_follow'
 }
 
 dependencies {

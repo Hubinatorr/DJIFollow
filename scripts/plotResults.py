@@ -4,8 +4,8 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 import numpy as np
 
-follower_data = json.load(open(Path(__file__).parent / "resultData/fast/fast_1.5_0.5kal.json", "r"))
-target_data = json.load(open(Path(__file__).parent / "testData/fast.json", "r"))
+follower_data = json.load(open(Path(__file__).parent / "resultData/full/1505.json", "r"))
+target_data = json.load(open(Path(__file__).parent / "testData/full.json", "r"))
 
 
 def add_trace(fig, x, y, row, col, name):

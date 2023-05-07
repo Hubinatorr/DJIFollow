@@ -1,4 +1,4 @@
-package com.riis.kotlin_simulatordemo
+package com.riis.dji_follow
 
 import android.content.Context
 import android.util.Log

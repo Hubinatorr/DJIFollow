@@ -1,4 +1,4 @@
-package com.riis.kotlin_simulatordemo
+package com.riis.dji_follow
 
 public class Deg2UTM(Lat: Double, Lon: Double) {
     var Easting: Double
